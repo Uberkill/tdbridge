@@ -1,0 +1,26 @@
+{
+  "name": "td-multiuser-bridge",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build:client": "tsc src/client/app.ts --outDir public --target es2020 --lib dom,es2020 --esModuleInterop",
+    "build:server": "tsc src/server/relay.ts --outDir dist --module commonjs --esModuleInterop",
+    "build": "npm run build:client && npm run build:server",
+    "start": "node dist/relay.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1",
+    "osc": "^2.4.5",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@types/ws": "^8.18.1",
+    "typescript": "^7.0.2"
+  }
+}

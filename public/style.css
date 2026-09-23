@@ -1,0 +1,174 @@
+/* Google Material Design Baseline */
+:root {
+    --primary: #1a73e8; /* Google Blue */
+    --primary-dark: #1557b0;
+    --bg-color: #f8f9fa; /* Light Gray */
+    --surface: #ffffff;
+    --text-main: #202124;
+    --text-sec: #5f6368;
+    --error: #ea4335;
+    --success: #34a853;
+}
+
+html, body {
+    height: 100dvh;
+    max-height: 100dvh;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: 'Roboto', -apple-system, sans-serif;
+    
+    /* UX FIXES: Prevents iOS elastic bounce */
+    overscroll-behavior: none;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Material Elevations (Shadows) */
+.mat-elevation-z1 { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
+.mat-elevation-z2 { box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23); }
+
+/* Material Button */
+.mat-btn {
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+.mat-btn:active { box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+.mat-primary { background-color: var(--primary); color: white; }
+.mat-primary:active { background-color: var(--primary-dark); }
+.mat-secondary { background-color: transparent; color: var(--text-sec); box-shadow: none; border: 1px solid #dadce0; padding: 6px 12px; font-size: 0.85rem;}
+.mat-secondary:active { background-color: #f1f3f4; }
+
+/* Gate (Login Card) */
+#gate {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    padding: 20px;
+}
+
+.mat-card {
+    background: var(--surface);
+    padding: 40px 30px;
+    border-radius: 8px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    box-sizing: border-box;
+}
+
+.mat-card h1 { margin: 0 0 10px 0; font-size: 1.5rem; font-weight: 500; color: var(--text-main); }
+.mat-card p { margin: 0 0 24px 0; font-size: 1rem; color: var(--text-sec); }
+
+.input-group {
+    margin-bottom: 24px;
+    width: 100%;
+}
+.input-group input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 1rem;
+    border: 1px solid #dadce0;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-family: 'Roboto', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.input-group input:focus { border-color: var(--primary); border-width: 2px; padding: 11px 15px; }
+
+/* Main UI */
+#ui {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#status-bar {
+    padding: 12px 20px;
+    background: var(--surface);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1rem;
+    font-weight: 500;
+    z-index: 10; /* Keep shadow above joystick */
+}
+
+#control-area {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column; 
+    background-color: var(--bg-color);
+}
+
+@media (orientation: landscape) { #control-area { flex-direction: row; } }
+
+#joystick-zone {
+    flex: 1;
+    position: relative;
+    min-height: 50%;
+}
+
+#action-buttons {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 24px;
+    justify-content: center;
+    align-items: center;
+}
+
+@media (orientation: landscape) { #action-buttons { flex-direction: column; } }
+
+/* Action Buttons (Material Style) */
+.action-btn {
+    flex: 1;
+    max-width: 200px;
+    aspect-ratio: 1 / 1; 
+    background: var(--surface);
+    color: var(--primary);
+    border: none;
+    border-radius: 16px; /* Squircle */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.action-btn:active, .action-btn.is-active {
+    background: #e8f0fe; /* Light blue ripple effect */
+    transform: scale(0.95);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+}
+
+.btn-title {
+    font-size: 1.25rem;
+    font-weight: 500;
+    pointer-events: none;
+}
+
+.btn-desc {
+    font-size: 0.875rem;
+    color: var(--text-sec);
+    pointer-events: none;
+}

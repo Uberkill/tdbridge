@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TouchDesigner Controller</title>
+    <!-- Google Fonts: Roboto for Material Design -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- NippleJS for mobile virtual joystick -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+</head>
+<body>
+    <!-- Material Design Onboarding Gate -->
+    <div id="gate">
+        <div class="mat-card mat-elevation-z2">
+            <h1>Join Installation</h1>
+            <p>Enter your name to take control.</p>
+            <div class="input-group">
+                <input type="text" id="player-name" placeholder="Your Name" maxlength="12" autocomplete="off">
+            </div>
+            <button id="join-btn" class="mat-btn mat-primary">Connect</button>
+        </div>
+    </div>
+
+    <!-- The Actual Controller UI -->
+    <div id="ui" style="display: none;">
+        <div id="status-bar" class="mat-elevation-z2">
+            <span id="slot-indicator">Connecting...</span>
+            <button id="exit-btn" class="mat-btn mat-secondary">Leave</button>
+        </div>
+        
+        <div id="control-area">
+            <!-- Joystick occupies upper/left space -->
+            <div id="joystick-zone"></div>
+            
+            <!-- Action buttons with descriptions -->
+            <div id="action-buttons">
+                <button class="action-btn mat-elevation-z1" data-action="action1">
+                    <span class="btn-title">Rotate</span>
+                    <span class="btn-desc">Spin the shape</span>
+                </button>
+                <button class="action-btn mat-elevation-z1" data-action="action2">
+                    <span class="btn-title">Pulse</span>
+                    <span class="btn-desc">Trigger effect</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
