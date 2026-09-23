@@ -10,6 +10,7 @@ let lastSentY: number = -1;
 let isLooping: boolean = false;
 let joystick: any = null;
 let playerName: string = "Anonymous";
+let isRejected: boolean = false;
 
 const gate = document.getElementById('gate') as HTMLDivElement;
 const ui = document.getElementById('ui') as HTMLDivElement;
@@ -19,11 +20,23 @@ const slotIndicator = document.getElementById('slot-indicator') as HTMLSpanEleme
 const joystickZone = document.getElementById('joystick-zone') as HTMLDivElement;
 const actionBtns = document.querySelectorAll('.action-btn');
 const nameInput = document.getElementById('player-name') as HTMLInputElement;
+const roomInput = document.getElementById('room-code-input') as HTMLInputElement;
+const errorMsg = document.getElementById('error-msg') as HTMLParagraphElement;
+
+// Auto-fill room code from URL if present
+const urlParams = new URLSearchParams(window.location.search);
+const currentRoomCode = urlParams.get('room') || "";
+if (currentRoomCode && roomInput) {
+    roomInput.value = currentRoomCode;
+}
 
 // --- 1. Joining and Exiting (State Machine) ---
 joinBtn.addEventListener('click', () => {
     const rawName = nameInput.value.trim();
-    if (rawName !== "") playerName = rawName.substring(0, 12); // Max 12 chars
+    if (rawName !== "") playerName = rawName.substring(0, 12); 
+
+    errorMsg.innerText = ""; // Clear errors
+    isRejected = false;
 
     if ('wakeLock' in navigator) {
         (navigator as any).wakeLock.request('screen').catch(console.error);
@@ -106,24 +119,19 @@ window.addEventListener('resize', () => {
     }
 });
 
-const urlParams = new URLSearchParams(window.location.search);
-const currentRoomCode = urlParams.get('room') || "";
-
 // --- 4. WebSocket ---
 function connectWS() {
     const hostname = window.location.hostname;
-    // If testing locally or on LAN (192.168.x.x), use ws:// on port 8080
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '' || hostname.startsWith('192.168') || hostname.startsWith('10.');
     
-    // Auto-injected Cloudflare Tunnel for public internet access!
     const host = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `wss://watt-begins-prospect-exchange.trycloudflare.com`;
     
     ws = new WebSocket(host);
 
     ws.onopen = () => {
         slotIndicator.innerText = "Connected! Waiting for slot...";
-        // Instantly transmit name and room code upon successful connection
-        ws?.send(JSON.stringify({ type: 'join', name: playerName, room: currentRoomCode }));
+        const finalRoomCode = roomInput.value.trim().toUpperCase();
+        ws?.send(JSON.stringify({ type: 'join', name: playerName, room: finalRoomCode }));
 
         if (!isLooping) {
             isLooping = true;
@@ -140,14 +148,15 @@ function connectWS() {
                 slotIndicator.style.color = '#34a853'; // Google Green
             }
             if (data.type === 'rejected') {
-                slotIndicator.innerText = data.reason || `Installation Full!`;
-                slotIndicator.style.color = '#ea4335'; // Google Red
+                isRejected = true;
+                errorMsg.innerText = data.reason || "Installation Full!";
+                exitBtn.click(); // Return to gate UI
             }
         } catch (e) {}
     };
 
     ws.onclose = () => {
-        if (ui.style.display === 'flex') {
+        if (ui.style.display === 'flex' && !isRejected) {
             slotIndicator.innerText = "Disconnected. Reconnecting...";
             slotIndicator.style.color = '#ea4335';
             currentSlot = -1;
