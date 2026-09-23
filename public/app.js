@@ -99,7 +99,8 @@ function connectWS() {
     const hostname = window.location.hostname;
     // If testing locally or on LAN (192.168.x.x), use ws:// on port 8080
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '' || hostname.startsWith('192.168') || hostname.startsWith('10.');
-    const host = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `wss://${hostname}`;
+    // Auto-injected Cloudflare Tunnel for public internet access!
+    const host = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `wss://watt-begins-prospect-exchange.trycloudflare.com`;
     ws = new WebSocket(host);
     ws.onopen = () => {
         slotIndicator.innerText = "Connected! Waiting for slot...";
