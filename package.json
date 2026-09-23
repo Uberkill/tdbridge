@@ -1,5 +1,5 @@
 {
-  "name": "td-multiuser-bridge",
+  "name": "tdbridge",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",

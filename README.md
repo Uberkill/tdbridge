@@ -1,38 +1,35 @@
-# Modular Multi-User TouchDesigner Installation
+# TD Bridge
 
-This repository contains the boilerplate for a production-ready, zero-latency multi-user controller for TouchDesigner.
+TD Bridge is a highly modular, zero-latency, multi-user web controller system designed specifically for TouchDesigner interactive installations. 
+
+It allows 15+ concurrent users to scan a dynamic QR code on their phones and instantly control a live visual via a Google Material Design joystick and action buttons.
 
 ## Architecture
-- **Frontend:** Static HTML/JS (designed for GitHub Pages).
-- **Relay Server:** Node.js WebSocket to UDP OSC Bridge (runs locally on TouchDesigner PC).
-- **Tunnel:** Cloudflare Tunnel (`cloudflared`) to expose the local relay to the public securely.
+1. **Frontend (`src/client`)**: A static HTML/TypeScript mobile web app hosted on GitHub Pages.
+2. **Backend (`src/server`)**: A lightweight Node.js relay server that converts WebSockets to UDP OSC.
+3. **Engine**: TouchDesigner receives the OSC natively into CHOPs.
 
-## 1. Local Testing
-1. In this folder, run `npm install`.
-2. Run the relay server: `node relay.js`.
-3. Open `public/index.html` in your browser. (You can also run a simple local web server using `npx serve public`).
-4. Click "Tap to Join". You should see "Connected: Player 1" and the virtual joystick.
-5. Watch the Node.js console log. It will show the player connecting.
+## Installation & Local Testing
+1. Clone this repository: `git clone https://github.com/Uberkill/tdbridge.git`
+2. Install dependencies: `npm install`
+3. Build the TypeScript files: `npm run build`
+4. Start the backend relay server: `npm start`
+5. In a new terminal, serve the frontend: `npx serve public -p 3000`
+6. Access the UI on your phone at `http://<YOUR_LOCAL_IP>:3000/?room=<ROOM_CODE>`
 
-## 2. TouchDesigner Setup (Zero-Python, Zero-Lag)
-Because of our hardcore Red Team pre-mortem, we are using a **pure CHOP** pipeline in TouchDesigner to guarantee 60fps.
-
-1. Open TouchDesigner.
-2. Add an **OSC In CHOP**.
-3. Set the **Network Port** to **9000**.
-4. When you move the joystick in your browser, you will immediately see channels appear like `slot_1_x` and `slot_1_y`.
-5. **Smoothing:** Feed the OSC In CHOP into a **Lag CHOP** to perfectly smooth the 30Hz web data into 60Hz visuals.
-6. **Instancing:** Create a Geometry COMP. Set Instancing to ON. Use a Pattern CHOP or Table DAT to define 15 fixed instance points. Use Math CHOPs or select CHOPs to route `slot_*_x` to Translate X.
-7. **Ghost Cleanup:** Feed the X/Y channels into a **Slope CHOP** and a **Logic CHOP** to detect when a user stops moving for 2 seconds, and use that to fade out their scale. (Alternatively, the Node.js relay will hard-reset them to 0,0 after 15 seconds of disconnect).
-
-## 3. Production Deployment (GitHub Pages + Cloudflare)
-1. Push the contents of the `public` folder to a GitHub repository and enable GitHub Pages.
-2. Install [Cloudflare Tunnel (`cloudflared`)](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) on your TouchDesigner PC.
-3. Authenticate `cloudflared` and create a tunnel routing to port 8080:
+## Production Deployment (Cloudflare + GitHub Pages)
+To take this live so anyone in the world can connect over 4G/5G:
+1. Push this repository to GitHub and enable **GitHub Pages** for the `public/` directory.
+2. Install Cloudflare `cloudflared` on your TouchDesigner PC.
+3. Expose the Node.js relay server to the internet securely:
    ```bash
-   cloudflared tunnel --url http://localhost:8080
+   cloudflared tunnel route tcp://localhost:8080 wss://api.yourdomain.com
    ```
-4. Copy the generated HTTPS URL (or your custom domain).
-5. Open `public/app.js` and change the `host` variable in `connectWS()` to match your tunnel URL (make sure it starts with `wss://`).
-6. Commit and push the changes to GitHub.
-7. Have users scan a QR code pointing to your GitHub Pages URL!
+4. Update `src/client/app.ts` to connect to `wss://api.yourdomain.com` and rebuild.
+
+## TouchDesigner Integration
+You do not need to build the network manually!
+1. Create a **Text DAT** in TouchDesigner.
+2. Paste the contents of `td_network_builder.py` into it.
+3. Right-click the DAT and select **Run Script**.
+4. TD Bridge will automatically generate the OSC In, Lag smoothing, and Logic CHOPs for all 15 users.
