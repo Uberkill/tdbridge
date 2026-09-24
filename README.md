@@ -10,8 +10,12 @@ Unlike traditional web apps where the buttons are hardcoded in HTML, **TDBridge 
 
 ## 1-Click Startup Automation
 You do not need to be a network engineer to run this.
-1. Run `Start_System.bat` on the TouchDesigner PC.
-2. The script will automatically launch a secure `cloudflared` tunnel, bypassing local firewalls and exposing your TouchDesigner server to the global internet safely.
+1. Download this entire repository as a ZIP or `git clone` it.
+2. Open `testing.toe` in TouchDesigner (or drag and drop `TDBridge.tox` into your own project).
+3. Run `Start_System.bat` on your PC.
+4. The script will automatically launch a secure `cloudflared` tunnel, bypassing local firewalls and exposing your TouchDesigner server to the global internet safely. It will also auto-update the frontend code and push it live to your Github Pages!
+
+**Note on Security:** Every time you start TouchDesigner, a built-in Python script automatically generates a **brand new random 4-letter room code**. You will never have a collision with another user's room code, preventing hijacked sessions!
 
 ## Robust Error Handling & Ghost Client Mitigation
 TDBridge is heavily optimized for live events where cellular connections drop constantly:
