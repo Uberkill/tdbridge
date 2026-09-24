@@ -1,4 +1,3 @@
-"use strict";
 let ws = null;
 let currentSlot = -1;
 let outX = 0;
@@ -26,11 +25,32 @@ const currentRoomCode = urlParams.get('room') || "";
 if (currentRoomCode && roomInput) {
     roomInput.value = currentRoomCode;
 }
+// Fetch Dynamic Branding on Page Load
+const hostname = window.location.hostname;
+const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '' || hostname.startsWith('192.168') || hostname.startsWith('10.');
+const wsUrlBase = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `wss://grades-louis-associate-outlet.trycloudflare.com`;
+const httpUrlBase = wsUrlBase.replace('ws://', 'http://').replace('wss://', 'https://');
+fetch(`${httpUrlBase}/branding`)
+    .then(res => res.json())
+    .then(b => {
+    if (b.project_name)
+        document.querySelector('h1').innerText = b.project_name;
+    if (b.subtitle)
+        document.querySelector('#gate p').innerText = b.subtitle;
+    if (b.primary_color)
+        joinBtn.style.backgroundColor = b.primary_color;
+    if (b.bg_color)
+        document.body.style.backgroundColor = b.bg_color;
+})
+    .catch(e => console.log("Branding fetch failed or offline"));
 // --- 1. Joining and Exiting (State Machine) ---
 joinBtn.addEventListener('click', () => {
-    const rawName = nameInput.value.trim();
-    if (rawName !== "")
-        playerName = rawName.substring(0, 12);
+    let rawName = nameInput.value.trim();
+    if (rawName === "") {
+        // Frictionless Join: Auto-generate a name
+        rawName = "Player_" + Math.floor(Math.random() * 9000 + 1000);
+    }
+    playerName = rawName.substring(0, 12);
     errorMsg.innerText = ""; // Clear errors
     isRejected = false;
     if ('wakeLock' in navigator) {

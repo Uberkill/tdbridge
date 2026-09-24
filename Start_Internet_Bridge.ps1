@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$WorkingDir = "C:\Users\oob\.gemini\antigravity\scratch\TDBridge"
+$WorkingDir = $PSScriptRoot
 Set-Location $WorkingDir
 
 Write-Host "==========================================" -ForegroundColor Cyan

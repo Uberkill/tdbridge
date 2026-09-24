@@ -1,32 +1,33 @@
 {
-  "name": "tdbridge",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "build:client": "tsc src/client/app.ts --outDir public --target es2020 --lib dom,es2020 --esModuleInterop",
-    "build:server": "tsc src/server/relay.ts --outDir dist --module commonjs --esModuleInterop",
-    "build": "npm run build:client && npm run build:server",
-    "start": "node dist/relay.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "express": "^5.2.1",
-    "osc": "^2.4.5",
-    "ws": "^8.21.3"
-  },
-  "devDependencies": {
-    "@types/jest": "^30.0.0",
-    "@types/node": "^26.6.2",
-    "@types/ws": "^8.18.1",
-    "jest": "^30.5.2",
-    "jsdom": "^30.1.1",
-    "jsdom-global": "^3.0.2",
-    "playwright": "^1.63.0",
-    "ts-jest": "^29.4.13",
-    "typescript": "^7.0.2"
-  }
+    "name":  "tdbridge",
+    "version":  "1.0.0",
+    "description":  "",
+    "main":  "index.js",
+    "scripts":  {
+                    "build:client":  "tsc src/client/app.ts --outDir public --target es2020 --lib dom,es2020 --esModuleInterop --skipLibCheck",
+                    "build":  "npm run build:client",
+                    "test":  "jest"
+                },
+    "keywords":  [
+
+                 ],
+    "author":  "",
+    "license":  "ISC",
+    "type":  "commonjs",
+    "dependencies":  {
+                         "express":  "^5.2.1",
+                         "osc":  "^2.4.5",
+                         "ws":  "^8.21.3"
+                     },
+    "devDependencies":  {
+                            "@types/jest":  "^30.0.0",
+                            "@types/node":  "^26.6.2",
+                            "@types/ws":  "^8.18.1",
+                            "jest":  "^30.5.2",
+                            "jsdom":  "^30.1.1",
+                            "jsdom-global":  "^3.0.2",
+                            "playwright":  "^1.63.0",
+                            "ts-jest":  "^29.4.13",
+                            "typescript":  "^5.4.5"
+                        }
 }
