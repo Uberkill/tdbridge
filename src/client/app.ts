@@ -124,7 +124,7 @@ function connectWS() {
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '' || hostname.startsWith('192.168') || hostname.startsWith('10.');
     
-    const host = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `wss://completed-relationships-wherever-adequate.trycloudflare.com`;
+    const host = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `wss://bat-lives-progressive-easy.trycloudflare.com`;
     
     ws = new WebSocket(host);
 
