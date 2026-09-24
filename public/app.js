@@ -75,8 +75,6 @@ exitBtn.addEventListener('click', () => {
         joystick = null;
     }
     currentSlot = -1;
-    outX = 0;
-    outY = 0;
     if (dynamicControls)
         dynamicControls.innerHTML = "";
 });
@@ -148,9 +146,24 @@ function buildDynamicUI(blueprint) {
             const down = dpadContainer.querySelector('.down');
             const left = dpadContainer.querySelector('.left');
             const right = dpadContainer.querySelector('.right');
-            const bindDpad = (btn, x, y) => {
-                const press = (e) => { e.preventDefault(); btn.style.transform = 'scale(0.9)'; outX = x; outY = y; };
-                const release = (e) => { e.preventDefault(); btn.style.transform = 'scale(1)'; outX = 0; outY = 0; };
+            const activeDpad = { up: false, down: false, left: false, right: false };
+            const updateDpadOut = () => {
+                outX = (activeDpad.right ? 1 : 0) - (activeDpad.left ? 1 : 0);
+                outY = (activeDpad.up ? 1 : 0) - (activeDpad.down ? 1 : 0);
+            };
+            const bindDpad = (btn, key) => {
+                const press = (e) => {
+                    e.preventDefault();
+                    btn.style.transform = 'scale(0.9)';
+                    activeDpad[key] = true;
+                    updateDpadOut();
+                };
+                const release = (e) => {
+                    e.preventDefault();
+                    btn.style.transform = 'scale(1)';
+                    activeDpad[key] = false;
+                    updateDpadOut();
+                };
                 btn.addEventListener('mousedown', press);
                 btn.addEventListener('touchstart', press, { passive: false });
                 btn.addEventListener('mouseup', release);
@@ -159,10 +172,10 @@ function buildDynamicUI(blueprint) {
                 btn.addEventListener('touchcancel', release);
                 btn.addEventListener('contextmenu', e => e.preventDefault());
             };
-            bindDpad(up, 0, 1);
-            bindDpad(down, 0, -1);
-            bindDpad(left, -1, 0);
-            bindDpad(right, 1, 0);
+            bindDpad(up, 'up');
+            bindDpad(down, 'down');
+            bindDpad(left, 'left');
+            bindDpad(right, 'right');
             wrapper.appendChild(dpadContainer);
         }
         dynamicControls.appendChild(wrapper);
