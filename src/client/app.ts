@@ -149,6 +149,40 @@ function buildDynamicUI(blueprint: any[]) {
             
             wrapper.appendChild(label);
             wrapper.appendChild(slider);
+        } else if (control.type === 'dpad') {
+            // Create a classic D-Pad
+            const dpadContainer = document.createElement('div');
+            dpadContainer.className = 'dpad-container';
+            dpadContainer.innerHTML = `
+                <div class="dpad-row"><button class="dpad-btn up">▲</button></div>
+                <div class="dpad-row"><button class="dpad-btn left">◀</button><div class="dpad-center"></div><button class="dpad-btn right">▶</button></div>
+                <div class="dpad-row"><button class="dpad-btn down">▼</button></div>
+            `;
+            
+            const up = dpadContainer.querySelector('.up') as HTMLButtonElement;
+            const down = dpadContainer.querySelector('.down') as HTMLButtonElement;
+            const left = dpadContainer.querySelector('.left') as HTMLButtonElement;
+            const right = dpadContainer.querySelector('.right') as HTMLButtonElement;
+
+            const bindDpad = (btn: HTMLButtonElement, x: number, y: number) => {
+                const press = (e: Event) => { e.preventDefault(); btn.style.transform = 'scale(0.9)'; outX = x; outY = y; };
+                const release = (e: Event) => { e.preventDefault(); btn.style.transform = 'scale(1)'; outX = 0; outY = 0; };
+                
+                btn.addEventListener('mousedown', press);
+                btn.addEventListener('touchstart', press, { passive: false });
+                btn.addEventListener('mouseup', release);
+                btn.addEventListener('mouseleave', release);
+                btn.addEventListener('touchend', release);
+                btn.addEventListener('touchcancel', release);
+                btn.addEventListener('contextmenu', e => e.preventDefault());
+            };
+
+            bindDpad(up, 0, 1);
+            bindDpad(down, 0, -1);
+            bindDpad(left, -1, 0);
+            bindDpad(right, 1, 0);
+
+            wrapper.appendChild(dpadContainer);
         }
         
         dynamicControls.appendChild(wrapper);
@@ -171,7 +205,7 @@ function initJoystick() {
         if (!data || !data.angle) return;
         const radius = data.instance.options.size / 2;
         outX = data.distance * Math.cos(data.angle.radian) / radius;
-        outY = -(data.distance * Math.sin(data.angle.radian) / radius); 
+        outY = data.distance * Math.sin(data.angle.radian) / radius; // Fixed inverted Y axis
     });
 
     joystick.on('end', () => {
