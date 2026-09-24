@@ -260,3 +260,35 @@ input[type="range"]::-webkit-slider-thumb {
     width: 70px;
     height: 70px;
 }
+.dpad-container {
+    display: grid;
+    grid-template-columns: 60px 60px 60px;
+    grid-template-rows: 60px 60px 60px;
+    gap: 5px;
+    margin: 20px auto;
+    justify-content: center;
+}
+.dpad-row { display: contents; }
+.dpad-btn {
+    width: 60px; height: 60px;
+    background-color: #333; color: white;
+    border: none; border-radius: 10px;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 0 #111, 0 5px 10px rgba(0,0,0,0.5);
+    transition: all 0.1s;
+}
+.dpad-btn:active {
+    box-shadow: 0 0 0 #111, 0 2px 5px rgba(0,0,0,0.5);
+    transform: translateY(4px);
+    background-color: #444;
+}
+.dpad-btn.up { grid-column: 2; grid-row: 1; border-radius: 10px 10px 4px 4px; }
+.dpad-btn.left { grid-column: 1; grid-row: 2; border-radius: 10px 4px 4px 10px; }
+.dpad-btn.right { grid-column: 3; grid-row: 2; border-radius: 4px 10px 10px 4px; }
+.dpad-btn.down { grid-column: 2; grid-row: 3; border-radius: 4px 4px 10px 10px; }
+.dpad-center {
+    grid-column: 2; grid-row: 2;
+    background-color: #333;
+    width: 60px; height: 60px;
+    border-radius: 4px;
+}
