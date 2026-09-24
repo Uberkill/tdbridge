@@ -102,6 +102,7 @@ function initJoystick() {
     });
 
     joystick.on('move', (evt: any, data: any) => {
+        if (!data || !data.angle) return;
         const radius = data.instance.options.size / 2;
         outX = data.distance * Math.cos(data.angle.radian) / radius;
         outY = -(data.distance * Math.sin(data.angle.radian) / radius); 
