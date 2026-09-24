@@ -1,35 +1,27 @@
-# TD Bridge
+# TDBridge: Modular Multi-User Web Controller
 
-TD Bridge is a highly modular, zero-latency, multi-user web controller system designed specifically for TouchDesigner interactive installations. 
+TDBridge is a zero-latency, server-driven multi-user web controller built directly inside TouchDesigner. It allows 100+ concurrent users to scan a QR code on their phones, connect instantly via Cloudflare tunnels, and control live visuals without installing an app.
 
-It allows 15+ concurrent users to scan a dynamic QR code on their phones and instantly control a live visual via a Google Material Design joystick and action buttons.
+## The "Server-Driven Dynamic UI" Architecture
+Unlike traditional web apps where the buttons are hardcoded in HTML, **TDBridge is 100% controlled by TouchDesigner**.
+- Inside the TouchDesigner component, there is a `ui_config` Table DAT.
+- You can add buttons, toggles, and sliders just by typing rows into this spreadsheet.
+- When a phone connects, TouchDesigner sends it a JSON blueprint. The mobile web app dynamically constructs massive, Dark Mode action buttons and sliders to match your blueprint instantly.
 
-## Architecture
-1. **Frontend (`src/client`)**: A static HTML/TypeScript mobile web app hosted on GitHub Pages.
-2. **Backend (`src/server`)**: A lightweight Node.js relay server that converts WebSockets to UDP OSC.
-3. **Engine**: TouchDesigner receives the OSC natively into CHOPs.
+## 1-Click Startup Automation
+You do not need to be a network engineer to run this.
+1. Run `Start_System.bat` on the TouchDesigner PC.
+2. The script will automatically launch a secure `cloudflared` tunnel, bypassing local firewalls and exposing your TouchDesigner server to the global internet safely.
 
-## Installation & Local Testing
-1. Clone this repository: `git clone https://github.com/Uberkill/tdbridge.git`
-2. Install dependencies: `npm install`
-3. Build the TypeScript files: `npm run build`
-4. Start the backend relay server: `npm start`
-5. In a new terminal, serve the frontend: `npx serve public -p 3000`
-6. Access the UI on your phone at `http://<YOUR_LOCAL_IP>:3000/?room=<ROOM_CODE>`
+## Robust Error Handling & Ghost Client Mitigation
+TDBridge is heavily optimized for live events where cellular connections drop constantly:
+- **Instant Cleanup:** When a user closes their browser or their connection drops, the WebSocket closes gracefully. TouchDesigner instantly intercepts this in `onWebSocketClose` and deletes their row from the database. Their visual avatar disappears instantly.
+- **Auto-Reconnection:** If a user locks their iPhone screen, iOS Safari suspends the connection. TDBridge uses a `visibilitychange` listener—the millisecond the user unlocks their phone, it reboots the network loop and seamlessly slots them back into the game without requiring a page refresh.
+- **Input Sanitization:** Malformed packets or rogue JSON payloads from hackers are strictly validated against the `ui_config` schema in TouchDesigner. Invalid commands are silently dropped to prevent Python crashes.
 
-## Production Deployment (Cloudflare + GitHub Pages)
-To take this live so anyone in the world can connect over 4G/5G:
-1. Push this repository to GitHub and enable **GitHub Pages** for the `public/` directory.
-2. Install Cloudflare `cloudflared` on your TouchDesigner PC.
-3. Expose the Node.js relay server to the internet securely:
-   ```bash
-   cloudflared tunnel route tcp://localhost:8080 wss://api.yourdomain.com
-   ```
-4. Update `src/client/app.ts` to connect to `wss://api.yourdomain.com` and rebuild.
-
-## TouchDesigner Integration
-You do not need to build the network manually!
-1. Create a **Text DAT** in TouchDesigner.
-2. Paste the contents of `td_network_builder.py` into it.
-3. Right-click the DAT and select **Run Script**.
-4. TD Bridge will automatically generate the OSC In, Lag smoothing, and Logic CHOPs for all 15 users.
+## Local Development
+1. Clone this repository.
+2. `npm install`
+3. Modify TypeScript in `src/client/app.ts`.
+4. Compile with `npx tsc src/client/app.ts --outDir public`
+5. The `public/` directory is automatically served to GitHub Pages via GitHub Actions.
