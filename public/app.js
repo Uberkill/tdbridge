@@ -15,7 +15,7 @@ const joinBtn = document.getElementById('join-btn');
 const exitBtn = document.getElementById('exit-btn');
 const slotIndicator = document.getElementById('slot-indicator');
 const joystickZone = document.getElementById('joystick-zone');
-const actionBtns = document.querySelectorAll('.action-btn');
+const dynamicControls = document.getElementById('dynamic-controls');
 const nameInput = document.getElementById('player-name');
 const roomInput = document.getElementById('room-code-input');
 const errorMsg = document.getElementById('error-msg');
@@ -52,31 +52,62 @@ exitBtn.addEventListener('click', () => {
     currentSlot = -1;
     outX = 0;
     outY = 0;
+    if (dynamicControls)
+        dynamicControls.innerHTML = "";
 });
-// --- 2. Action Buttons (UI Feedback & Event Sending) ---
-actionBtns.forEach(btn => {
-    const actionName = btn.getAttribute('data-action');
-    const triggerPress = (e) => {
-        e.preventDefault();
-        btn.classList.add('is-active');
-        if (ws && ws.readyState === WebSocket.OPEN && currentSlot !== -1) {
-            ws.send(JSON.stringify({ type: 'button', name: actionName, state: 1 }));
+// --- 2. Dynamic UI Generation ---
+function buildDynamicUI(blueprint) {
+    if (!dynamicControls)
+        return;
+    dynamicControls.innerHTML = "";
+    blueprint.forEach(control => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'dynamic-control-wrapper';
+        if (control.type === 'button') {
+            const btn = document.createElement('button');
+            btn.className = 'action-btn mat-elevation-z1';
+            btn.style.backgroundColor = control.color;
+            btn.innerHTML = `<span class="btn-title">${control.label}</span>`;
+            const sendState = (state) => {
+                if (ws && ws.readyState === WebSocket.OPEN && currentSlot !== -1) {
+                    ws.send(JSON.stringify({ type: 'control', id: control.id, value: state }));
+                }
+            };
+            const triggerPress = (e) => { e.preventDefault(); btn.classList.add('is-active'); sendState(1); };
+            const triggerRelease = (e) => { e.preventDefault(); btn.classList.remove('is-active'); sendState(0); };
+            btn.addEventListener('mousedown', triggerPress);
+            btn.addEventListener('touchstart', triggerPress, { passive: false });
+            // Hardened release triggers
+            btn.addEventListener('mouseup', triggerRelease);
+            btn.addEventListener('mouseleave', triggerRelease);
+            btn.addEventListener('touchend', triggerRelease);
+            btn.addEventListener('touchcancel', triggerRelease);
+            wrapper.appendChild(btn);
         }
-    };
-    const triggerRelease = (e) => {
-        e.preventDefault();
-        btn.classList.remove('is-active');
-        if (ws && ws.readyState === WebSocket.OPEN && currentSlot !== -1) {
-            ws.send(JSON.stringify({ type: 'button', name: actionName, state: 0 }));
+        else if (control.type === 'slider') {
+            const label = document.createElement('label');
+            label.innerText = control.label;
+            label.style.color = '#fff';
+            label.style.display = 'block';
+            label.style.marginBottom = '5px';
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = control.min.toString();
+            slider.max = control.max.toString();
+            slider.step = control.step.toString();
+            slider.value = control.default_val.toString();
+            slider.style.width = '100%';
+            slider.addEventListener('input', (e) => {
+                if (ws && ws.readyState === WebSocket.OPEN && currentSlot !== -1) {
+                    ws.send(JSON.stringify({ type: 'control', id: control.id, value: parseFloat(e.target.value) }));
+                }
+            });
+            wrapper.appendChild(label);
+            wrapper.appendChild(slider);
         }
-    };
-    btn.addEventListener('mousedown', triggerPress);
-    btn.addEventListener('touchstart', triggerPress, { passive: false });
-    btn.addEventListener('mouseup', triggerRelease);
-    btn.addEventListener('mouseleave', triggerRelease);
-    btn.addEventListener('touchend', triggerRelease);
-    btn.addEventListener('touchcancel', triggerRelease);
-});
+        dynamicControls.appendChild(wrapper);
+    });
+}
 // --- 3. Joystick & Resize Logic ---
 function initJoystick() {
     if (joystick)
@@ -89,6 +120,8 @@ function initJoystick() {
         size: joySize
     });
     joystick.on('move', (evt, data) => {
+        if (!data || !data.angle)
+            return;
         const radius = data.instance.options.size / 2;
         outX = data.distance * Math.cos(data.angle.radian) / radius;
         outY = -(data.distance * Math.sin(data.angle.radian) / radius);
@@ -107,7 +140,7 @@ window.addEventListener('resize', () => {
 function connectWS() {
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '' || hostname.startsWith('192.168') || hostname.startsWith('10.');
-    const host = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `wss://bat-lives-progressive-easy.trycloudflare.com`;
+    const host = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `wss://grades-louis-associate-outlet.trycloudflare.com`;
     ws = new WebSocket(host);
     ws.onopen = () => {
         slotIndicator.innerText = "Connected! Waiting for slot...";
@@ -125,6 +158,9 @@ function connectWS() {
                 currentSlot = data.slot;
                 slotIndicator.innerText = `${playerName} (Player ${currentSlot})`;
                 slotIndicator.style.color = '#34a853'; // Google Green
+                if (data.ui_blueprint) {
+                    buildDynamicUI(data.ui_blueprint);
+                }
             }
             if (data.type === 'rejected') {
                 isRejected = true;
