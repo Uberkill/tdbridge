@@ -11,6 +11,7 @@ let isLooping: boolean = false;
 let joystick: any = null;
 let playerName: string = "Anonymous";
 let isRejected: boolean = false;
+let reconnectTimer: any = null;
 
 const gate = document.getElementById('gate') as HTMLDivElement;
 const ui = document.getElementById('ui') as HTMLDivElement;
@@ -50,6 +51,10 @@ joinBtn.addEventListener('click', () => {
 
 exitBtn.addEventListener('click', () => {
     if (ws) ws.close(); 
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
     ui.style.display = 'none';
     gate.style.display = 'flex';
     if (joystick) {
@@ -157,6 +162,13 @@ window.addEventListener('resize', () => {
 
 // --- 4. WebSocket ---
 function connectWS() {
+    if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '' || hostname.startsWith('192.168') || hostname.startsWith('10.');
     
@@ -196,11 +208,12 @@ function connectWS() {
     };
 
     ws.onclose = () => {
+        isLooping = false; // MUST reset loop flag for reconnects
         if (ui.style.display === 'flex' && !isRejected) {
             slotIndicator.innerText = "Disconnected. Reconnecting...";
             slotIndicator.style.color = '#ea4335';
             currentSlot = -1;
-            setTimeout(connectWS, 2000); 
+            reconnectTimer = setTimeout(connectWS, 2000 + Math.random() * 1000); 
         }
     };
 }
