@@ -99,6 +99,8 @@ function buildDynamicUI(blueprint: any[]) {
             btn.addEventListener('touchend', triggerRelease);
             btn.addEventListener('touchcancel', triggerRelease);
             
+            btn.addEventListener('contextmenu', e => e.preventDefault()); // Prevent iOS callouts
+            
             wrapper.appendChild(btn);
         } else if (control.type === 'slider') {
             const label = document.createElement('label');
@@ -106,6 +108,10 @@ function buildDynamicUI(blueprint: any[]) {
             label.style.color = '#fff';
             label.style.display = 'block';
             label.style.marginBottom = '5px';
+            label.style.fontSize = '1.2rem';
+            label.style.fontWeight = 'bold';
+            label.style.textTransform = 'uppercase';
+            label.style.letterSpacing = '1px';
             
             const slider = document.createElement('input');
             slider.type = 'range';
@@ -133,11 +139,11 @@ function buildDynamicUI(blueprint: any[]) {
 function initJoystick() {
     if (joystick) joystick.destroy();
 
-    const joySize = Math.min(window.innerWidth / 2.5, 250);
+    const joySize = Math.min(window.innerWidth / 2, 350); // Massive joystick!
     joystick = nipplejs.create({
         zone: joystickZone,
         mode: 'dynamic',
-        color: '#1a73e8', // Google Blue to match Material UI
+        color: '#ffffff', // High visibility white on dark background
         size: joySize
     });
 
