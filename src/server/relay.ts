@@ -246,4 +246,4 @@ setInterval(() => {
     }
 }, 5000);
 
-server.listen(WS_PORT, () => { printDashboard(); });
+server.listen(WS_PORT, '0.0.0.0', () => { printDashboard(); });
