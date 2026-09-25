@@ -9,8 +9,8 @@ const { chromium } = require('playwright');
     page.on('pageerror', error => console.log('BROWSER ERROR:', error.message));
     page.on('requestfailed', request => console.log('NETWORK FAILED:', request.url(), request.failure().errorText));
 
-    console.log("Navigating to https://uberkill.github.io/tdbridge ...");
-    await page.goto('https://uberkill.github.io/tdbridge', { waitUntil: 'networkidle' });
+    console.log("Navigating to http://127.0.0.1:8080 ...");
+    await page.goto('http://127.0.0.1:8080', { waitUntil: 'networkidle' });
     
     console.log("Waiting 2 seconds...");
     await page.waitForTimeout(2000);

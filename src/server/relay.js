@@ -171,6 +171,7 @@ function freeSlot(index) {
         sendOSC_Float(index + 1, "x", 0);
         sendOSC_Float(index + 1, "y", 0);
         sendOSC_String(index + 1, "name", "");
+        sendOSC_Float(index + 1, "active", 0);
         updatePlayerCount();
     }
 }
@@ -198,7 +199,16 @@ wss.on('connection', (ws) => {
     slots[slotIndex] = { ws: ws, lastSeen: Date.now(), lastMsg: 0, name: "Connecting..." };
     slotStates[slotIndex] = {};
     const playerNum = slotIndex + 1;
-    ws.send(JSON.stringify({ type: 'assigned_slot', slot: playerNum }));
+    ws.send(JSON.stringify({
+        type: 'assigned_slot',
+        slot: playerNum,
+        ui_blueprint: [
+            { type: 'button', id: 'action1', label: 'Rotate', color: '#4285f4' },
+            { type: 'button', id: 'action2', label: 'Pulse Color', color: '#ea4335' },
+            { type: 'slider', id: 'slider1', label: 'Speed', color: '#fbbc05', default_val: 0.5, min: 0, max: 1, step: 0.01 },
+            { type: 'dpad', id: 'dpad1', label: 'Movement' }
+        ]
+    }));
     ws.on('error', (err) => { addLog(`[WS ERROR] Slot ${playerNum}: ${err.message}`); });
     ws.on('message', (message) => {
         try {
@@ -225,6 +235,7 @@ wss.on('connection', (ws) => {
                 const cleanName = typeof data.name === 'string' ? data.name.substring(0, 12) : "Anonymous";
                 slots[slotIndex].name = cleanName;
                 sendOSC_String(playerNum, "name", cleanName);
+                sendOSC_Float(playerNum, "active", 1);
                 addLog(`[CONNECT] Slot ${playerNum} registered as: ${cleanName}`);
                 updatePlayerCount();
                 return;

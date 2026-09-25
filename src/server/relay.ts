@@ -107,14 +107,17 @@ udpPort.on("error", (err: Error) => {
 udpPort.on("message", (oscMsg: any) => {
     try {
         if (oscMsg.address === "/td/fps") {
-            const newFps = Number(oscMsg.args[0].value).toFixed(1);
+            const rawFps = oscMsg.args?.[0]?.value ?? oscMsg.args?.[0] ?? 0;
+            const newFps = Number(rawFps).toFixed(1);
             if (newFps !== tdFPS) {
                 tdFPS = newFps;
                 requestRedraw();
             }
         } else if (oscMsg.address === "/td/error") {
+            const rawMsg = oscMsg.args?.[0]?.value ?? oscMsg.args?.[0] ?? '(unknown error)';
+            if (!rawMsg || rawMsg === '' || String(rawMsg).includes('Cook dependency loop')) return;
             tdErrors++;
-            addLog(`[TD ENGINE ERROR] ${oscMsg.args[0].value}`);
+            addLog(`[TD ENGINE ERROR] ${rawMsg}`);
         }
     } catch (e) {}
 });
@@ -160,6 +163,7 @@ function freeSlot(index: number) {
         sendOSC_Float(index + 1, "x", 0);
         sendOSC_Float(index + 1, "y", 0);
         sendOSC_String(index + 1, "name", ""); 
+        sendOSC_Float(index + 1, "active", 0);
         updatePlayerCount();
     }
 }
@@ -182,7 +186,16 @@ wss.on('connection', (ws: WebSocket) => {
     slotStates[slotIndex] = {};
     const playerNum = slotIndex + 1; 
     
-    ws.send(JSON.stringify({ type: 'assigned_slot', slot: playerNum }));
+    ws.send(JSON.stringify({ 
+        type: 'assigned_slot', 
+        slot: playerNum,
+        ui_blueprint: [
+            { type: 'button', id: 'action1', label: 'Rotate', color: '#4285f4' },
+            { type: 'button', id: 'action2', label: 'Pulse Color', color: '#ea4335' },
+            { type: 'slider', id: 'slider1', label: 'Speed', color: '#fbbc05', default_val: 0.5, min: 0, max: 1, step: 0.01 },
+            { type: 'dpad', id: 'dpad1', label: 'Movement' }
+        ]
+    }));
 
     ws.on('error', (err) => { addLog(`[WS ERROR] Slot ${playerNum}: ${err.message}`); });
 
@@ -207,6 +220,7 @@ wss.on('connection', (ws: WebSocket) => {
                 const cleanName = typeof data.name === 'string' ? data.name.substring(0, 12) : "Anonymous";
                 slots[slotIndex].name = cleanName;
                 sendOSC_String(playerNum, "name", cleanName);
+                sendOSC_Float(playerNum, "active", 1);
                 addLog(`[CONNECT] Slot ${playerNum} registered as: ${cleanName}`);
                 updatePlayerCount();
                 return;

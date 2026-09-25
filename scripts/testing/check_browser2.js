@@ -15,8 +15,8 @@ const { chromium } = require('playwright');
         ws.on('close', () => console.log('WebSocket closed'));
     });
 
-    console.log("Navigating to https://uberkill.github.io/tdbridge ...");
-    await page.goto('https://uberkill.github.io/tdbridge', { waitUntil: 'networkidle' });
+    console.log("Navigating to http://127.0.0.1:8080 ...");
+    await page.goto('http://127.0.0.1:8080', { waitUntil: 'networkidle' });
     
     console.log("Filling in room code...");
     await page.fill('#room-code-input', 'UAXQ');
