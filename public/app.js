@@ -27,9 +27,12 @@ if (currentRoomCode && roomInput) {
 }
 // Fetch Dynamic Branding on Page Load
 const hostname = window.location.hostname;
+const protocol = window.location.protocol;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '' || hostname.startsWith('192.168') || hostname.startsWith('10.');
-const wsUrlBase = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `wss://grades-louis-associate-outlet.trycloudflare.com`;
-const httpUrlBase = wsUrlBase.replace('ws://', 'http://').replace('wss://', 'https://');
+// Dynamically resolve URL instead of hardcoding Cloudflare
+const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
+const wsUrlBase = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `${wsProtocol}//${window.location.host}`;
+const httpUrlBase = isLocal ? `http://${hostname || '127.0.0.1'}:8080` : `${protocol}//${window.location.host}`;
 fetch(`${httpUrlBase}/branding`)
     .then(res => res.json())
     .then(b => {
@@ -217,9 +220,8 @@ function connectWS() {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
     }
-    const hostname = window.location.hostname;
-    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '' || hostname.startsWith('192.168') || hostname.startsWith('10.');
-    const host = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `wss://grades-louis-associate-outlet.trycloudflare.com`;
+    // Use the dynamically resolved URL
+    const host = wsUrlBase;
     ws = new WebSocket(host);
     ws.onopen = () => {
         slotIndicator.innerText = "Connected! Waiting for slot...";

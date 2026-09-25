@@ -1,3 +1,6 @@
 @echo off
-PowerShell.exe -ExecutionPolicy Bypass -File "%~dp0Start_Internet_Bridge.ps1"
+title TD_Bridge_Terminal
+color 0b
+echo Starting TDBridge Central Dashboard...
+node src\server\relay.js
 pause
