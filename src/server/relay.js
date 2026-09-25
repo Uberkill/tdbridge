@@ -217,6 +217,7 @@ wss.on('connection', (ws) => {
             }
             if (data.type === 'join') {
                 if (data.room !== ACTIVE_ROOM_CODE) {
+                    addLog(`[AUTH] Rejected connection! Expected: ${ACTIVE_ROOM_CODE}, Got: ${data.room}`);
                     ws.send(JSON.stringify({ type: 'rejected', reason: 'Invalid or Expired QR Code!' }));
                     ws.close();
                     return;
@@ -269,5 +270,6 @@ setInterval(() => {
             freeSlot(i);
         }
     }
+    sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
 }, 5000);
 server.listen(WS_PORT, '0.0.0.0', () => { printDashboard(); });
