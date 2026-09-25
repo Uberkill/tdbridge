@@ -1,21 +1,49 @@
-import WebSocket from 'ws';
-import express from 'express';
-import http from 'http';
-import path from 'path';
-import fs from 'fs';
-import { spawn } from 'child_process';
-import * as readline from 'readline';
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const ws_1 = __importDefault(require("ws"));
+const express_1 = __importDefault(require("express"));
+const http_1 = __importDefault(require("http"));
+const path_1 = __importDefault(require("path"));
+const fs_1 = __importDefault(require("fs"));
+const child_process_1 = require("child_process");
+const readline = __importStar(require("readline"));
 // @ts-ignore
-import osc from 'osc';
+const osc_1 = __importDefault(require("osc"));
 // @ts-ignore
-import qrcode from 'qrcode-terminal';
+const qrcode_terminal_1 = __importDefault(require("qrcode-terminal"));
 const WS_PORT = 8080;
 const OSC_PORT = 9000;
 const MAX_USERS = 100; // Increased to 100 per plan
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server, maxPayload: 1024 });
-app.use(express.static(path.join(__dirname, '../../public')));
+const app = (0, express_1.default)();
+const server = http_1.default.createServer(app);
+const wss = new ws_1.default.Server({ server, maxPayload: 1024 });
+app.use(express_1.default.static(path_1.default.join(__dirname, '../../public')));
 app.get('/branding', (req, res) => {
     res.json({ project_name: "TouchDesigner Bridge", subtitle: "A Node.js OSC Relay", primary_color: "#1e88e5", bg_color: "#121212" });
 });
@@ -24,7 +52,7 @@ let activePlayers = 0;
 let cloudflareUrl = "";
 let tdFPS = "0.0";
 let tdErrors = 0;
-const LOG_FILE_PATH = path.join(__dirname, '../../error_log.txt');
+const LOG_FILE_PATH = path_1.default.join(__dirname, '../../error_log.txt');
 // Rolling log buffer (Anti-Spam)
 const MAX_LOGS = 10;
 const logs = [];
@@ -34,7 +62,7 @@ function addLog(msg) {
     // Persist critical errors to file
     if (msg.includes('ERROR') || msg.includes('FATAL')) {
         const dateStamp = new Date().toLocaleDateString('en-US');
-        fs.appendFile(LOG_FILE_PATH, `[${dateStamp} ${timestamp}] ${msg}\n`, (err) => {
+        fs_1.default.appendFile(LOG_FILE_PATH, `[${dateStamp} ${timestamp}] ${msg}\n`, (err) => {
             if (err)
                 console.error("Failed to write to log file");
         });
@@ -71,7 +99,7 @@ function printDashboard() {
     if (cloudflareUrl) {
         console.log("\nScan to join:");
         const fullUrl = `${cloudflareUrl}/?room=${ACTIVE_ROOM_CODE}`;
-        qrcode.generate(fullUrl, { small: true });
+        qrcode_terminal_1.default.generate(fullUrl, { small: true });
         console.log("=========================================================\n");
         console.log("Telemetry Logs:");
         logs.forEach(l => console.log(l));
@@ -80,7 +108,7 @@ function printDashboard() {
 // Handle Terminal Resize
 process.stdout.on('resize', requestRedraw);
 // Set up OSC (Two-Way Telemetry)
-const udpPort = new osc.UDPPort({
+const udpPort = new osc_1.default.UDPPort({
     localAddress: "127.0.0.1",
     localPort: 9001,
     remoteAddress: "127.0.0.1",
@@ -111,7 +139,7 @@ udpPort.on("ready", () => {
     sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
 });
 // Run Cloudflare
-const cf = spawn(path.join(__dirname, '../../cloudflared.exe'), ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
+const cf = (0, child_process_1.spawn)(path_1.default.join(__dirname, '../../cloudflared.exe'), ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
 cf.stderr.on('data', (data) => {
     const output = data.toString();
     const match = output.match(/https:\/\/(.*\.trycloudflare\.com)/);
