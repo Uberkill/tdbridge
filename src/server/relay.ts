@@ -18,18 +18,33 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, maxPayload: 1024 });
 
-app.use(express.static(path.join(__dirname, '../../public')));
+app.use(express.static(path.join(__dirname, '../public')));
 app.get('/branding', (req, res) => {
     res.json({ project_name: "TouchDesigner Bridge", subtitle: "A Node.js OSC Relay", primary_color: "#1e88e5", bg_color: "#121212" });
 });
+app.get('/room', (req, res) => {
+    res.json({ room: ACTIVE_ROOM_CODE });
+});
 
-const ACTIVE_ROOM_CODE = Math.random().toString(36).substring(2, 6).toUpperCase();
+const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRTUVWXY346789";
+function generateRoomCode(): string {
+    let res = "";
+    for (let i = 0; i < 4; i++) {
+        res += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+    }
+    return res;
+}
+const ACTIVE_ROOM_CODE = generateRoomCode();
 let activePlayers = 0;
 let cloudflareUrl = "";
 let tdFPS = "0.0";
 let tdErrors = 0;
+let tdLastSeen = 0;
+let tdClones = 0;
+let tdBotCount = 5;
+let tdFoodCount = 0;
 
-const LOG_FILE_PATH = path.join(__dirname, '../../error_log.txt');
+const LOG_FILE_PATH = path.join(__dirname, '../scratch_debug/error_log.txt');
 
 // Rolling log buffer (Anti-Spam)
 const MAX_LOGS = 10;
@@ -64,18 +79,34 @@ function requestRedraw() {
 }
 
 function printDashboard() {
-    // Clear and reset cursor
-    readline.cursorTo(process.stdout, 0, 0);
-    readline.clearScreenDown(process.stdout);
+    if (process.stdout.isTTY) {
+        try {
+            readline.cursorTo(process.stdout, 0, 0);
+            readline.clearScreenDown(process.stdout);
+        } catch (e) {}
+    }
     
+    const isTdConnected = (Date.now() - tdLastSeen < 3500) && (tdLastSeen > 0);
+    const tdStatusStr = isTdConnected ? `\x1b[32m[ONLINE - ${tdFPS} FPS]\x1b[0m` : `\x1b[33m[CONNECTING / WAITING...]\x1b[0m`;
+    const netStatusStr = cloudflareUrl ? `\x1b[32m[LIVE - CLOUDFLARE]\x1b[0m` : `\x1b[33m[ESTABLISHING TUNNEL...]\x1b[0m`;
+
     console.log("=========================================================");
     console.log("             TOUCHDESIGNER BRIDGE TERMINAL               ");
     console.log("=========================================================");
-    console.log(`[NETWORK] Internet Status: ${cloudflareUrl ? '[LIVE]' : '[CONNECTING...]'}`);
-    console.log(`[ROOM]    Room Code:       ${ACTIVE_ROOM_CODE}`);
-    console.log(`[URL]     Public Address:  ${cloudflareUrl || 'Waiting for Cloudflare...'}`);
-    console.log(`[PLAYERS] Active Players:  ${activePlayers} / ${MAX_USERS}`);
-    console.log(`[SYSTEM]  TD Engine FPS:   ${tdFPS} fps  |  Errors: ${tdErrors}`);
+    console.log(`[NETWORK]    Status:          ${netStatusStr}`);
+    console.log(`[URL]        Public Address:  \x1b[36m${cloudflareUrl || 'http://127.0.0.1:' + WS_PORT}\x1b[0m`);
+    console.log(`[LOCAL]      Local LAN:       http://127.0.0.1:${WS_PORT}`);
+    console.log(`---------------------------------------------------------`);
+    console.log(`[ROOM CODE]  \x1b[1m\x1b[33m>>>  [ ${ACTIVE_ROOM_CODE.split('').join(' ')} ]  <<<\x1b[0m   (Enter on mobile)`);
+    console.log(`---------------------------------------------------------`);
+    console.log(`[ENGINE]     TouchDesigner:   ${tdStatusStr}  |  Errors: ${tdErrors}`);
+    console.log(`[CLIENTS]    Connected Users: ${activePlayers} / ${MAX_USERS}  (Allocated Slots: ${tdClones})`);
+    
+    // List user names if any
+    const activeNames = slots.filter(s => s.ws !== null && s.name && s.name !== "Connecting...").map(s => s.name);
+    if (activeNames.length > 0) {
+        console.log(`             Active Users:    \x1b[32m${activeNames.join(', ')}\x1b[0m`);
+    }
     console.log("=========================================================");
     
     if (cloudflareUrl) {
@@ -83,8 +114,12 @@ function printDashboard() {
         const fullUrl = `${cloudflareUrl}/?room=${ACTIVE_ROOM_CODE}`;
         qrcode.generate(fullUrl, { small: true });
         console.log("=========================================================\n");
-        console.log("Telemetry Logs:");
-        logs.forEach(l => console.log(l));
+    }
+    console.log("Live Telemetry & Diagnostics:");
+    if (logs.length === 0) {
+        console.log("  (System standing by. Waiting for player joins...)");
+    } else {
+        logs.forEach(l => console.log(`  ${l}`));
     }
 }
 
@@ -106,15 +141,23 @@ udpPort.on("error", (err: Error) => {
 // Incoming Telemetry from TouchDesigner
 udpPort.on("message", (oscMsg: any) => {
     try {
+        tdLastSeen = Date.now();
+        const val = oscMsg.args?.[0]?.value ?? oscMsg.args?.[0];
         if (oscMsg.address === "/td/fps") {
-            const rawFps = oscMsg.args?.[0]?.value ?? oscMsg.args?.[0] ?? 0;
-            const newFps = Number(rawFps).toFixed(1);
+            const newFps = Number(val || 0).toFixed(1);
             if (newFps !== tdFPS) {
                 tdFPS = newFps;
                 requestRedraw();
             }
+        } else if (oscMsg.address === "/td/clones") {
+            tdClones = Number(val || 0);
+        } else if (oscMsg.address === "/td/bot_count") {
+            tdBotCount = Number(val || 0);
+        } else if (oscMsg.address === "/td/food_count") {
+            tdFoodCount = Number(val || 0);
+            requestRedraw();
         } else if (oscMsg.address === "/td/error") {
-            const rawMsg = oscMsg.args?.[0]?.value ?? oscMsg.args?.[0] ?? '(unknown error)';
+            const rawMsg = val ?? '(unknown error)';
             if (!rawMsg || rawMsg === '' || String(rawMsg).includes('Cook dependency loop')) return;
             tdErrors++;
             addLog(`[TD ENGINE ERROR] ${rawMsg}`);
@@ -128,7 +171,8 @@ udpPort.on("ready", () => {
 });
 
 // Run Cloudflare
-const cf = spawn(path.join(__dirname, '../../cloudflared.exe'), ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
+const cf = spawn(path.join(__dirname, '../cloudflared.exe'), ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
+cf.stdout.on('data', () => {}); // Drain stdout pipe to prevent OS buffer blocking
 cf.stderr.on('data', (data) => {
     const output = data.toString();
     const match = output.match(/https:\/\/(.*\.trycloudflare\.com)/);
@@ -150,19 +194,24 @@ process.on('exit', () => { if (cf) cf.kill(); });
 interface SlotData { ws: WebSocket | null; lastSeen: number; lastMsg: number; name: string; }
 const slots: SlotData[] = Array.from({ length: MAX_USERS }, () => ({ ws: null, lastSeen: 0, lastMsg: 0, name: "" }));
 
-function getAvailableSlot(): number { return slots.findIndex(s => s.ws === null); }
+// Slots 1-5 (indices 0-4) are reserved for background bot choir (Nemo, Dory, Marlin, Gill, Bubbles)
+// Real players join in slots 6-100 (indices 5-99)
+function getAvailableSlot(): number { 
+    return slots.findIndex((s, idx) => idx >= 5 && s.ws === null); 
+}
 function updatePlayerCount() { activePlayers = slots.filter(s => s.ws !== null).length; requestRedraw(); }
 
 function freeSlot(index: number) {
     if (index >= 0 && index < MAX_USERS && slots[index].ws !== null) {
-        addLog(`[DISCONNECT] Slot ${index + 1} (${slots[index].name}) left.`);
+        const name = slots[index].name;
+        // Null ws FIRST to make this idempotent (close event can fire multiple times)
         slots[index].ws = null;
         slots[index].name = "";
-        // State throttle/batching reset
         slotStates[index] = {};
+        addLog(`[DISCONNECT] Slot ${index + 1} (${name || 'unknown'}) left.`);
         sendOSC_Float(index + 1, "x", 0);
         sendOSC_Float(index + 1, "y", 0);
-        sendOSC_String(index + 1, "name", ""); 
+        sendOSC_String(index + 1, "name", "");
         sendOSC_Float(index + 1, "active", 0);
         updatePlayerCount();
     }
@@ -191,8 +240,10 @@ wss.on('connection', (ws: WebSocket) => {
         slot: playerNum,
         ui_blueprint: [
             { type: 'button', id: 'action1', label: 'Rotate', color: '#4285f4' },
-            { type: 'button', id: 'action2', label: 'Pulse Color', color: '#ea4335' },
+            { type: 'button', id: 'action2', label: 'Change Color', color: '#ea4335' },
+            { type: 'button', id: 'action3', label: 'Feed Fish', color: '#ff9800' },
             { type: 'slider', id: 'slider1', label: 'Speed', color: '#fbbc05', default_val: 0.5, min: 0, max: 1, step: 0.01 },
+            { type: 'slider', id: 'slider2', label: 'Fish Size', color: '#34a853', default_val: 0.55, min: 0.35, max: 0.95, step: 0.02 },
             { type: 'dpad', id: 'dpad1', label: 'Movement' }
         ]
     }));
@@ -210,6 +261,16 @@ wss.on('connection', (ws: WebSocket) => {
             }
             const data = JSON.parse(message.toString());
             if (data.type === 'ping') { ws.send(JSON.stringify({ type: 'pong' })); return; }
+            if (data.type === 'env') {
+                if (typeof data.param === 'string') {
+                    const val = typeof data.value === 'number' ? data.value : (data.value ? 1 : 0);
+                    udpPort.send({
+                        address: `/env/${data.param}`,
+                        args: [{ type: "f", value: val }]
+                    }, "127.0.0.1", OSC_PORT);
+                }
+                return;
+            }
             if (data.type === 'join') {
                 if (data.room !== ACTIVE_ROOM_CODE) { 
                     addLog(`[AUTH] Rejected connection! Expected: ${ACTIVE_ROOM_CODE}, Got: ${data.room}`);
@@ -267,3 +328,25 @@ setInterval(() => {
 }, 5000);
 
 server.listen(WS_PORT, '0.0.0.0', () => { printDashboard(); });
+
+server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`\n[FATAL] Port ${WS_PORT} is already in use! Exiting in 3s...`);
+        addLog(`[FATAL] Port ${WS_PORT} in use`);
+        setTimeout(() => process.exit(1), 3000);
+    } else {
+        console.error('[FATAL] Server error:', err.message);
+        process.exit(1);
+    }
+});
+
+process.on('uncaughtException', (err) => {
+    addLog(`[UNCAUGHT] ${err.message}`);
+    console.error("Uncaught Exception:", err);
+});
+
+process.on('unhandledRejection', (reason) => {
+    addLog(`[UNHANDLED REJECTION] ${reason}`);
+    console.error("Unhandled Rejection:", reason);
+});
+

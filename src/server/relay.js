@@ -43,16 +43,19 @@ const MAX_USERS = 100; // Increased to 100 per plan
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
 const wss = new ws_1.default.Server({ server, maxPayload: 1024 });
-app.use(express_1.default.static(path_1.default.join(__dirname, '../../public')));
+app.use(express_1.default.static(path_1.default.join(__dirname, '../public')));
 app.get('/branding', (req, res) => {
     res.json({ project_name: "TouchDesigner Bridge", subtitle: "A Node.js OSC Relay", primary_color: "#1e88e5", bg_color: "#121212" });
+});
+app.get('/room', (req, res) => {
+    res.json({ room: ACTIVE_ROOM_CODE });
 });
 const ACTIVE_ROOM_CODE = Math.random().toString(36).substring(2, 6).toUpperCase();
 let activePlayers = 0;
 let cloudflareUrl = "";
 let tdFPS = "0.0";
 let tdErrors = 0;
-const LOG_FILE_PATH = path_1.default.join(__dirname, '../../error_log.txt');
+const LOG_FILE_PATH = path_1.default.join(__dirname, '../scratch_debug/error_log.txt');
 // Rolling log buffer (Anti-Spam)
 const MAX_LOGS = 10;
 const logs = [];
@@ -121,15 +124,19 @@ udpPort.on("error", (err) => {
 udpPort.on("message", (oscMsg) => {
     try {
         if (oscMsg.address === "/td/fps") {
-            const newFps = Number(oscMsg.args[0].value).toFixed(1);
+            const rawFps = oscMsg.args?.[0]?.value ?? oscMsg.args?.[0] ?? 0;
+            const newFps = Number(rawFps).toFixed(1);
             if (newFps !== tdFPS) {
                 tdFPS = newFps;
                 requestRedraw();
             }
         }
         else if (oscMsg.address === "/td/error") {
+            const rawMsg = oscMsg.args?.[0]?.value ?? oscMsg.args?.[0] ?? '(unknown error)';
+            if (!rawMsg || rawMsg === '' || String(rawMsg).includes('Cook dependency loop'))
+                return;
             tdErrors++;
-            addLog(`[TD ENGINE ERROR] ${oscMsg.args[0].value}`);
+            addLog(`[TD ENGINE ERROR] ${rawMsg}`);
         }
     }
     catch (e) { }
@@ -139,7 +146,7 @@ udpPort.on("ready", () => {
     sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
 });
 // Run Cloudflare
-const cf = (0, child_process_1.spawn)(path_1.default.join(__dirname, '../../cloudflared.exe'), ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
+const cf = (0, child_process_1.spawn)(path_1.default.join(__dirname, '../cloudflared.exe'), ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
 cf.stderr.on('data', (data) => {
     const output = data.toString();
     const match = output.match(/https:\/\/(.*\.trycloudflare\.com)/);
@@ -159,15 +166,20 @@ process.on('SIGTERM', () => { if (cf)
 process.on('exit', () => { if (cf)
     cf.kill(); });
 const slots = Array.from({ length: MAX_USERS }, () => ({ ws: null, lastSeen: 0, lastMsg: 0, name: "" }));
-function getAvailableSlot() { return slots.findIndex(s => s.ws === null); }
+// Slots 1-5 (indices 0-4) are reserved for background bot choir (Nemo, Dory, Marlin, Gill, Bubbles)
+// Real players join in slots 6-100 (indices 5-99)
+function getAvailableSlot() {
+    return slots.findIndex((s, idx) => idx >= 5 && s.ws === null);
+}
 function updatePlayerCount() { activePlayers = slots.filter(s => s.ws !== null).length; requestRedraw(); }
 function freeSlot(index) {
     if (index >= 0 && index < MAX_USERS && slots[index].ws !== null) {
-        addLog(`[DISCONNECT] Slot ${index + 1} (${slots[index].name}) left.`);
+        const name = slots[index].name;
+        // Null ws FIRST to make this idempotent (close event can fire multiple times)
         slots[index].ws = null;
         slots[index].name = "";
-        // State throttle/batching reset
         slotStates[index] = {};
+        addLog(`[DISCONNECT] Slot ${index + 1} (${name || 'unknown'}) left.`);
         sendOSC_Float(index + 1, "x", 0);
         sendOSC_Float(index + 1, "y", 0);
         sendOSC_String(index + 1, "name", "");
@@ -284,3 +296,21 @@ setInterval(() => {
     sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
 }, 5000);
 server.listen(WS_PORT, '0.0.0.0', () => { printDashboard(); });
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error('\n\n[FATAL] Port ' + WS_PORT + ' is already in use!');
+        console.error('  Another relay.js is still running in the background.');
+        console.error('  Fix: open Task Manager -> find "node.exe" -> End Task');
+        console.error('  Or run this in PowerShell:');
+        console.error('    Get-Process -Name node | Stop-Process -Force');
+        console.error('\nPress any key to exit...');
+        process.stdin.setRawMode?.(true);
+        process.stdin.resume();
+        process.stdin.once('data', () => process.exit(1));
+        setTimeout(() => process.exit(1), 5000); // auto-exit after 5s
+    }
+    else {
+        console.error('[FATAL] Server error:', err.message);
+        process.exit(1);
+    }
+});
