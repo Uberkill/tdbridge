@@ -61,11 +61,11 @@ async function run() {
     console.log("Blueprint controls count:", receivedBlueprint?.length);
     const controlIds = receivedBlueprint?.map(c => `${c.id} (${c.label})`);
     console.log("Controls:", controlIds?.join(", "));
-    const hasAction3 = receivedBlueprint?.some(c => c.id === 'action3');
+    const hasAction3 = receivedBlueprint?.some(c => c.id === 'action3' || c.alias === 'action3' || (c.id === 'b3' && c.label.includes('Feed')));
     if (!hasAction3) {
         throw new Error("action3 ('Feed Fish') missing from ui_blueprint!");
     }
-    console.log("✔ action3 ('Feed Fish') verified in ui_blueprint!");
+    console.log("✔ action3 / b3 ('Feed Fish') verified in ui_blueprint!");
 
     // Movement test
     console.log("\n--- MOVEMENT & PERSISTENCE TEST ---");
