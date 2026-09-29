@@ -42,6 +42,10 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8080 " ^| findstr "LISTENIN
     taskkill /F /PID %%a >nul 2>&1
     echo   - Cleared stale TCP port 8080 ^(PID %%a^)
 )
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":9001 "') do (
+    taskkill /F /PID %%a >nul 2>&1
+    echo   - Cleared stale UDP port 9001 ^(PID %%a^)
+)
 taskkill /F /IM cloudflared.exe >nul 2>&1
 echo [OK] Network ports ready.
 
