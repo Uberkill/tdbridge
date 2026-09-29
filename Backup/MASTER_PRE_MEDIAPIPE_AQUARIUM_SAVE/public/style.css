@@ -1,0 +1,294 @@
+/* Modern Dark Mode UI for Live Events */
+:root {
+    --primary: #1a73e8;
+    --primary-dark: #1557b0;
+    --bg-color: #121212; /* Dark Mode */
+    --surface: #1e1e1e;
+    --text-main: #ffffff;
+    --text-sec: #aaaaaa;
+    --error: #ff5252;
+    --success: #69f0ae;
+}
+
+html, body {
+    height: 100dvh;
+    max-height: 100dvh;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: 'Roboto', -apple-system, sans-serif;
+    
+    /* UX FIXES: Prevents iOS elastic bounce */
+    overscroll-behavior: none;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Material Elevations */
+.mat-elevation-z1 { box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+.mat-elevation-z2 { box-shadow: 0 8px 16px rgba(0,0,0,0.4); }
+
+/* Material Button */
+.mat-btn {
+    padding: 16px 32px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.mat-btn:active { box-shadow: 0 2px 4px rgba(0,0,0,0.5); transform: scale(0.98); }
+.mat-primary { background-color: var(--primary); color: white; }
+.mat-primary:active { background-color: var(--primary-dark); }
+.mat-secondary { background-color: transparent; color: var(--text-sec); box-shadow: none; border: 2px solid #444; padding: 8px 16px; font-size: 0.9rem;}
+.mat-secondary:active { background-color: #333; }
+
+#gate {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    padding: 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.mat-card {
+    background: var(--surface);
+    padding: 40px 30px;
+    border-radius: 16px;
+    text-align: center;
+    max-width: 400px;
+    width: 95%;
+    box-sizing: border-box;
+    border: 1px solid #333;
+}
+
+.mat-card h1 { margin: 0 0 10px 0; font-size: 2rem; font-weight: 700; color: var(--text-main); }
+.mat-card p { margin: 0 0 24px 0; font-size: 1.1rem; color: var(--text-sec); }
+
+.input-group {
+    margin-bottom: 24px;
+    width: 100%;
+}
+.input-group input {
+    width: 100%;
+    padding: 16px;
+    font-size: 1.2rem;
+    border: 2px solid #444;
+    background-color: #2a2a2a;
+    color: white;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-family: 'Roboto', sans-serif;
+    outline: none;
+    transition: all 0.2s;
+}
+.input-group input:focus { border-color: var(--primary); background-color: #333; }
+
+/* Main UI */
+#ui {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    /* Safe Area Insets for modern iPhones */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+}
+
+#status-bar {
+    padding: 16px 20px;
+    background: var(--surface);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    z-index: 10;
+    border-bottom: 1px solid #333;
+}
+
+#control-area {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column; 
+    background-color: var(--bg-color);
+    overflow: hidden;
+}
+
+@media (orientation: landscape) { #control-area { flex-direction: row; } }
+
+#joystick-zone {
+    flex: 1;
+    position: relative;
+    min-height: 40%;
+    border-bottom: 2px dashed #333;
+}
+@media (orientation: landscape) { 
+    #joystick-zone { border-bottom: none; border-right: 2px dashed #333; }
+}
+
+/* Dynamic Controls Layout */
+.controls-grid {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px;
+    overflow-y: auto; /* Allows scrolling if many buttons */
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+}
+@media (orientation: landscape) {
+    .controls-grid {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-content: flex-start;
+    }
+}
+
+.dynamic-control-wrapper {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+@media (orientation: landscape) {
+    .dynamic-control-wrapper {
+        width: calc(50% - 8px);
+    }
+}
+
+/* Massive Action Buttons */
+.action-btn {
+    width: 100%;
+    min-height: 100px;
+    border: none;
+    border-radius: 16px; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: transform 0.1s, filter 0.1s;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.4) !important;
+    
+    /* UX FIX: Stop iOS zoom / text selection on spam tap */
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+}
+
+.action-btn:active, .action-btn.is-active {
+    transform: scale(0.95);
+    filter: brightness(1.2);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.6) !important;
+}
+
+.btn-title {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    pointer-events: none;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* Sliders */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none; 
+    width: 100%;
+    height: 30px;
+    background: #333;
+    outline: none;
+    border-radius: 15px;
+    margin-top: 10px;
+    touch-action: pan-x; /* Allow horizontal sliding on iOS */
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}.dpad-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin: 20px 0;
+}
+.dpad-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+}
+.dpad-btn {
+    width: 70px;
+    height: 70px;
+    background-color: #333;
+    color: white;
+    border: none;
+    border-radius: 15px;
+    font-size: 2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.1s;
+    user-select: none;
+}
+.dpad-btn:active {
+    background-color: #555;
+}
+.dpad-center {
+    width: 70px;
+    height: 70px;
+}
+.dpad-container {
+    display: grid;
+    grid-template-columns: 60px 60px 60px;
+    grid-template-rows: 60px 60px 60px;
+    gap: 5px;
+    margin: 20px auto;
+    justify-content: center;
+}
+.dpad-row { display: contents; }
+.dpad-btn {
+    width: 60px; height: 60px;
+    background-color: #333; color: white;
+    border: none; border-radius: 10px;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 0 #111, 0 5px 10px rgba(0,0,0,0.5);
+    transition: all 0.1s;
+}
+.dpad-btn:active {
+    box-shadow: 0 0 0 #111, 0 2px 5px rgba(0,0,0,0.5);
+    transform: translateY(4px);
+    background-color: #444;
+}
+.dpad-btn.up { grid-column: 2; grid-row: 1; border-radius: 10px 10px 4px 4px; }
+.dpad-btn.left { grid-column: 1; grid-row: 2; border-radius: 10px 4px 4px 10px; }
+.dpad-btn.right { grid-column: 3; grid-row: 2; border-radius: 4px 10px 10px 4px; }
+.dpad-btn.down { grid-column: 2; grid-row: 3; border-radius: 4px 4px 10px 10px; }
+.dpad-center {
+    grid-column: 2; grid-row: 2;
+    background-color: #333;
+    width: 60px; height: 60px;
+    border-radius: 4px;
+}
