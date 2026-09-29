@@ -69,14 +69,14 @@ if "%ERRORLEVEL%"=="0" (
 ) else (
     echo.
     echo [INFO] TouchDesigner is NOT currently running.
-    echo        Would you like to open testing_final.toe now?
+    echo        Would you like to open TDBridge.toe now?
     set /p LAUNCH_TD="       Press [Y] to launch TouchDesigner, or any key to continue: "
     if /i "!LAUNCH_TD!"=="Y" (
-        echo   - Launching testing_final.toe...
-        if exist "testing_final.toe" (
-            start "" "testing_final.toe"
-        ) else if exist "testing_final.104.toe" (
-            start "" "testing_final.104.toe"
+        echo   - Launching TDBridge.toe...
+        if exist "C:\Program Files\Derivative\TouchDesigner\bin\TouchDesigner.exe" (
+            start "" "C:\Program Files\Derivative\TouchDesigner\bin\TouchDesigner.exe" "TDBridge.toe"
+        ) else (
+            start "" "TDBridge.toe"
         )
         echo   - Waiting for TouchDesigner to initialize...
         timeout /t 5 /nobreak >nul
@@ -87,7 +87,7 @@ if "%ERRORLEVEL%"=="0" (
 echo.
 echo =========================================================
 echo   Starting Relay Server & Cloudflare Tunnel...
-echo   TouchDesigner active project: testing_final.toe
+echo   TouchDesigner active project: TDBridge.toe
 echo =========================================================
 echo.
 
