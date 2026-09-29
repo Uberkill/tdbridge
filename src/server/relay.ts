@@ -453,7 +453,7 @@ wss.on('connection', (ws: WebSocket) => {
     ws.on('close', () => { freeSlot(slotIndex); });
 });
 
-// Watchdog & Heartbeat (8-second timeout to flush ghost inputs)
+// Watchdog (8-second timeout to reap inactive ghost inputs)
 setInterval(() => {
     const now = Date.now();
     for (let i = 0; i < MAX_USERS; i++) {
@@ -463,8 +463,12 @@ setInterval(() => {
             freeSlot(i);
         }
     }
-    sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
 }, 4000);
+
+// Deterministic 1000ms Heartbeat to TouchDesigner
+setInterval(() => {
+    sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
+}, 1000);
 
 server.listen(WS_PORT, '0.0.0.0', () => { printDashboard(); });
 
