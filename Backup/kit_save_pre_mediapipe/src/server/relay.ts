@@ -1,0 +1,352 @@
+import WebSocket from 'ws';
+import express from 'express';
+import http from 'http';
+import path from 'path';
+import fs from 'fs';
+import { spawn } from 'child_process';
+import * as readline from 'readline';
+// @ts-ignore
+import osc from 'osc';
+// @ts-ignore
+import qrcode from 'qrcode-terminal';
+
+const WS_PORT = 8080;
+const OSC_PORT = 9000;
+const MAX_USERS = 100; // Increased to 100 per plan
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server, maxPayload: 1024 });
+
+app.use(express.static(path.join(__dirname, '../public')));
+app.get('/branding', (req, res) => {
+    res.json({ project_name: "TouchDesigner Bridge", subtitle: "A Node.js OSC Relay", primary_color: "#1e88e5", bg_color: "#121212" });
+});
+app.get('/room', (req, res) => {
+    res.json({ room: ACTIVE_ROOM_CODE });
+});
+
+const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRTUVWXY346789";
+function generateRoomCode(): string {
+    let res = "";
+    for (let i = 0; i < 4; i++) {
+        res += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+    }
+    return res;
+}
+const ACTIVE_ROOM_CODE = generateRoomCode();
+let activePlayers = 0;
+let cloudflareUrl = "";
+let tdFPS = "0.0";
+let tdErrors = 0;
+let tdLastSeen = 0;
+let tdClones = 0;
+let tdBotCount = 5;
+let tdFoodCount = 0;
+
+const LOG_FILE_PATH = path.join(__dirname, '../scratch_debug/error_log.txt');
+
+// Rolling log buffer (Anti-Spam)
+const MAX_LOGS = 10;
+const logs: string[] = [];
+function addLog(msg: string) {
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+    const formattedMsg = `[${timestamp}] ${msg}`;
+    
+    // Persist critical errors to file
+    if (msg.includes('ERROR') || msg.includes('FATAL')) {
+        const dateStamp = new Date().toLocaleDateString('en-US');
+        fs.appendFile(LOG_FILE_PATH, `[${dateStamp} ${timestamp}] ${msg}\n`, (err) => {
+            if (err) console.error("Failed to write to log file");
+        });
+    }
+
+    logs.push(formattedMsg);
+    if (logs.length > MAX_LOGS) logs.shift();
+    requestRedraw();
+}
+
+// UI Redraw Debouncing (Flicker-free ANSI rendering)
+let redrawPending = false;
+function requestRedraw() {
+    if (!redrawPending) {
+        redrawPending = true;
+        setImmediate(() => {
+            printDashboard();
+            redrawPending = false;
+        });
+    }
+}
+
+function printDashboard() {
+    if (process.stdout.isTTY) {
+        try {
+            readline.cursorTo(process.stdout, 0, 0);
+            readline.clearScreenDown(process.stdout);
+        } catch (e) {}
+    }
+    
+    const isTdConnected = (Date.now() - tdLastSeen < 3500) && (tdLastSeen > 0);
+    const tdStatusStr = isTdConnected ? `\x1b[32m[ONLINE - ${tdFPS} FPS]\x1b[0m` : `\x1b[33m[CONNECTING / WAITING...]\x1b[0m`;
+    const netStatusStr = cloudflareUrl ? `\x1b[32m[LIVE - CLOUDFLARE]\x1b[0m` : `\x1b[33m[ESTABLISHING TUNNEL...]\x1b[0m`;
+
+    console.log("=========================================================");
+    console.log("             TOUCHDESIGNER BRIDGE TERMINAL               ");
+    console.log("=========================================================");
+    console.log(`[NETWORK]    Status:          ${netStatusStr}`);
+    console.log(`[URL]        Public Address:  \x1b[36m${cloudflareUrl || 'http://127.0.0.1:' + WS_PORT}\x1b[0m`);
+    console.log(`[LOCAL]      Local LAN:       http://127.0.0.1:${WS_PORT}`);
+    console.log(`---------------------------------------------------------`);
+    console.log(`[ROOM CODE]  \x1b[1m\x1b[33m>>>  [ ${ACTIVE_ROOM_CODE.split('').join(' ')} ]  <<<\x1b[0m   (Enter on mobile)`);
+    console.log(`---------------------------------------------------------`);
+    console.log(`[ENGINE]     TouchDesigner:   ${tdStatusStr}  |  Errors: ${tdErrors}`);
+    console.log(`[CLIENTS]    Connected Users: ${activePlayers} / ${MAX_USERS}  (Allocated Slots: ${tdClones})`);
+    
+    // List user names if any
+    const activeNames = slots.filter(s => s.ws !== null && s.name && s.name !== "Connecting...").map(s => s.name);
+    if (activeNames.length > 0) {
+        console.log(`             Active Users:    \x1b[32m${activeNames.join(', ')}\x1b[0m`);
+    }
+    console.log("=========================================================");
+    
+    if (cloudflareUrl) {
+        console.log("\nScan to join:");
+        const fullUrl = `${cloudflareUrl}/?room=${ACTIVE_ROOM_CODE}`;
+        qrcode.generate(fullUrl, { small: true });
+        console.log("=========================================================\n");
+    }
+    console.log("Live Telemetry & Diagnostics:");
+    if (logs.length === 0) {
+        console.log("  (System standing by. Waiting for player joins...)");
+    } else {
+        logs.forEach(l => console.log(`  ${l}`));
+    }
+}
+
+// Handle Terminal Resize
+process.stdout.on('resize', requestRedraw);
+
+// Set up OSC (Two-Way Telemetry)
+const udpPort = new osc.UDPPort({
+    localAddress: "127.0.0.1",
+    localPort: 9001, 
+    remoteAddress: "127.0.0.1",
+    remotePort: OSC_PORT
+});
+
+udpPort.on("error", (err: Error) => {
+    addLog(`[OSC ERROR] ${err.message}`);
+});
+
+// Incoming Telemetry from TouchDesigner
+udpPort.on("message", (oscMsg: any) => {
+    try {
+        tdLastSeen = Date.now();
+        const val = oscMsg.args?.[0]?.value ?? oscMsg.args?.[0];
+        if (oscMsg.address === "/td/fps") {
+            const newFps = Number(val || 0).toFixed(1);
+            if (newFps !== tdFPS) {
+                tdFPS = newFps;
+                requestRedraw();
+            }
+        } else if (oscMsg.address === "/td/clones") {
+            tdClones = Number(val || 0);
+        } else if (oscMsg.address === "/td/bot_count") {
+            tdBotCount = Number(val || 0);
+        } else if (oscMsg.address === "/td/food_count") {
+            tdFoodCount = Number(val || 0);
+            requestRedraw();
+        } else if (oscMsg.address === "/td/error") {
+            const rawMsg = val ?? '(unknown error)';
+            if (!rawMsg || rawMsg === '' || String(rawMsg).includes('Cook dependency loop')) return;
+            tdErrors++;
+            addLog(`[TD ENGINE ERROR] ${rawMsg}`);
+        }
+    } catch (e) {}
+});
+
+udpPort.open();
+udpPort.on("ready", () => {
+    sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
+});
+
+// Run Cloudflare
+const cf = spawn(path.join(__dirname, '../cloudflared.exe'), ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
+cf.stdout.on('data', () => {}); // Drain stdout pipe to prevent OS buffer blocking
+cf.stderr.on('data', (data) => {
+    const output = data.toString();
+    const match = output.match(/https:\/\/(.*\.trycloudflare\.com)/);
+    if (match) {
+        cloudflareUrl = "https://" + match[1];
+        addLog(`[NETWORK] Tunnel established at ${cloudflareUrl}`);
+        requestRedraw();
+    }
+});
+cf.on('error', (err) => { addLog(`[FATAL] Failed to start cloudflared.exe: ${err.message}`); });
+cf.on('close', (code) => { addLog(`[NETWORK] Tunnel exited (Code ${code})`); });
+
+// Clean up child process
+process.on('SIGINT', () => { if (cf) cf.kill(); process.exit(0); });
+process.on('SIGTERM', () => { if (cf) cf.kill(); process.exit(0); });
+process.on('exit', () => { if (cf) cf.kill(); });
+
+// Setup WebSockets
+interface SlotData { ws: WebSocket | null; lastSeen: number; lastMsg: number; name: string; }
+const slots: SlotData[] = Array.from({ length: MAX_USERS }, () => ({ ws: null, lastSeen: 0, lastMsg: 0, name: "" }));
+
+// Slots 1-5 (indices 0-4) are reserved for background bot choir (Nemo, Dory, Marlin, Gill, Bubbles)
+// Real players join in slots 6-100 (indices 5-99)
+function getAvailableSlot(): number { 
+    return slots.findIndex((s, idx) => idx >= 5 && s.ws === null); 
+}
+function updatePlayerCount() { activePlayers = slots.filter(s => s.ws !== null).length; requestRedraw(); }
+
+function freeSlot(index: number) {
+    if (index >= 0 && index < MAX_USERS && slots[index].ws !== null) {
+        const name = slots[index].name;
+        // Null ws FIRST to make this idempotent (close event can fire multiple times)
+        slots[index].ws = null;
+        slots[index].name = "";
+        slotStates[index] = {};
+        addLog(`[DISCONNECT] Slot ${index + 1} (${name || 'unknown'}) left.`);
+        sendOSC_Float(index + 1, "x", 0);
+        sendOSC_Float(index + 1, "y", 0);
+        sendOSC_String(index + 1, "name", "");
+        sendOSC_Float(index + 1, "active", 0);
+        updatePlayerCount();
+    }
+}
+
+function sendOSC_Float(slotNumber: number, channel: string, value: number) { 
+    try { udpPort.send({ address: `/slot_${slotNumber}_${channel}`, args: [{ type: "f", value: value }] }); } catch (e) { }
+}
+function sendOSC_String(slotNumber: number, channel: string, value: string) { 
+    try { udpPort.send({ address: `/slot_${slotNumber}_${channel}`, args: [{ type: "s", value: value }] }); } catch (e) { }
+}
+
+// Scalability: Track last sent states to prevent redundant OSC spam
+const slotStates: { [slot: number]: { [key: string]: any } } = {};
+
+wss.on('connection', (ws: WebSocket) => {
+    const slotIndex = getAvailableSlot();
+    if (slotIndex === -1) { ws.send(JSON.stringify({ type: 'rejected' })); ws.close(); return; }
+    
+    slots[slotIndex] = { ws: ws, lastSeen: Date.now(), lastMsg: 0, name: "Connecting..." };
+    slotStates[slotIndex] = {};
+    const playerNum = slotIndex + 1; 
+    
+    ws.send(JSON.stringify({ 
+        type: 'assigned_slot', 
+        slot: playerNum,
+        ui_blueprint: [
+            { type: 'button', id: 'action1', label: 'Rotate', color: '#4285f4' },
+            { type: 'button', id: 'action2', label: 'Change Color', color: '#ea4335' },
+            { type: 'button', id: 'action3', label: 'Feed Fish', color: '#ff9800' },
+            { type: 'slider', id: 'slider1', label: 'Speed', color: '#fbbc05', default_val: 0.5, min: 0, max: 1, step: 0.01 },
+            { type: 'slider', id: 'slider2', label: 'Fish Size', color: '#34a853', default_val: 0.55, min: 0.35, max: 0.95, step: 0.02 },
+            { type: 'dpad', id: 'dpad1', label: 'Movement' }
+        ]
+    }));
+
+    ws.on('error', (err) => { addLog(`[WS ERROR] Slot ${playerNum}: ${err.message}`); });
+
+    ws.on('message', (message: WebSocket.Data) => {
+        try {
+            const now = Date.now();
+            if (slots[slotIndex] && slots[slotIndex].ws !== null) {
+                // Rate limiting (60Hz)
+                if (now - slots[slotIndex].lastMsg < 15) return;
+                slots[slotIndex].lastMsg = now;
+                slots[slotIndex].lastSeen = now;
+            }
+            const data = JSON.parse(message.toString());
+            if (data.type === 'ping') { ws.send(JSON.stringify({ type: 'pong' })); return; }
+            if (data.type === 'env') {
+                if (typeof data.param === 'string') {
+                    const val = typeof data.value === 'number' ? data.value : (data.value ? 1 : 0);
+                    udpPort.send({
+                        address: `/env/${data.param}`,
+                        args: [{ type: "f", value: val }]
+                    }, "127.0.0.1", OSC_PORT);
+                }
+                return;
+            }
+            if (data.type === 'join') {
+                if (data.room !== ACTIVE_ROOM_CODE) { 
+                    addLog(`[AUTH] Rejected connection! Expected: ${ACTIVE_ROOM_CODE}, Got: ${data.room}`);
+                    ws.send(JSON.stringify({ type: 'rejected', reason: 'Invalid or Expired QR Code!' })); 
+                    ws.close(); 
+                    return; 
+                }
+                const cleanName = typeof data.name === 'string' ? data.name.substring(0, 12) : "Anonymous";
+                slots[slotIndex].name = cleanName;
+                sendOSC_String(playerNum, "name", cleanName);
+                sendOSC_Float(playerNum, "active", 1);
+                addLog(`[CONNECT] Slot ${playerNum} registered as: ${cleanName}`);
+                updatePlayerCount();
+                return;
+            }
+            if (data.type === 'control') {
+                const value = typeof data.value === 'number' ? data.value : (data.value ? 1 : 0);
+                if (slotStates[slotIndex][data.id] !== value) {
+                    slotStates[slotIndex][data.id] = value;
+                    sendOSC_Float(playerNum, String(data.id), value);
+                }
+                return;
+            }
+            if (data.type === 'input') {
+                const parsedX = parseFloat(data.x); const parsedY = parseFloat(data.y);
+                const x = isNaN(parsedX) ? 0 : Math.max(-1, Math.min(1, parsedX));
+                const y = isNaN(parsedY) ? 0 : Math.max(-1, Math.min(1, parsedY));
+                
+                // Throttle identical continuous states
+                if (slotStates[slotIndex]['x'] !== x) {
+                    slotStates[slotIndex]['x'] = x;
+                    sendOSC_Float(playerNum, "x", x);
+                }
+                if (slotStates[slotIndex]['y'] !== y) {
+                    slotStates[slotIndex]['y'] = y;
+                    sendOSC_Float(playerNum, "y", y);
+                }
+            }
+        } catch (e) {}
+    });
+    ws.on('close', () => { freeSlot(slotIndex); });
+});
+
+// GC / Heartbeat
+setInterval(() => {
+    const now = Date.now();
+    for (let i = 0; i < MAX_USERS; i++) {
+        if (slots[i].ws !== null && now - slots[i].lastSeen > 15000) {
+            addLog(`[TIMEOUT] Slot ${i + 1} timed out.`);
+            try { slots[i].ws?.terminate(); } catch(e) {}
+            freeSlot(i);
+        }
+    }
+    sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
+}, 5000);
+
+server.listen(WS_PORT, '0.0.0.0', () => { printDashboard(); });
+
+server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`\n[FATAL] Port ${WS_PORT} is already in use! Exiting in 3s...`);
+        addLog(`[FATAL] Port ${WS_PORT} in use`);
+        setTimeout(() => process.exit(1), 3000);
+    } else {
+        console.error('[FATAL] Server error:', err.message);
+        process.exit(1);
+    }
+});
+
+process.on('uncaughtException', (err) => {
+    addLog(`[UNCAUGHT] ${err.message}`);
+    console.error("Uncaught Exception:", err);
+});
+
+process.on('unhandledRejection', (reason) => {
+    addLog(`[UNHANDLED REJECTION] ${reason}`);
+    console.error("Unhandled Rejection:", reason);
+});
+

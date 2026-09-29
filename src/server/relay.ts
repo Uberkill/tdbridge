@@ -259,7 +259,10 @@ function broadcastProfileChange() {
 }
 
 // Run Cloudflare
-const cf = spawn(path.join(__dirname, '../cloudflared.exe'), ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
+const binPath = path.join(__dirname, '../bin/cloudflared.exe');
+const rootPath = path.join(__dirname, '../cloudflared.exe');
+const cfExecutable = fs.existsSync(binPath) ? binPath : rootPath;
+const cf = spawn(cfExecutable, ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
 cf.stdout.on('data', () => {});
 cf.stderr.on('data', (data) => {
     const output = data.toString();

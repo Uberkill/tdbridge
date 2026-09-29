@@ -275,7 +275,10 @@ function broadcastProfileChange() {
     requestRedraw();
 }
 // Run Cloudflare
-const cf = (0, child_process_1.spawn)(path_1.default.join(__dirname, '../cloudflared.exe'), ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
+const binPath = path_1.default.join(__dirname, '../bin/cloudflared.exe');
+const rootPath = path_1.default.join(__dirname, '../cloudflared.exe');
+const cfExecutable = fs_1.default.existsSync(binPath) ? binPath : rootPath;
+const cf = (0, child_process_1.spawn)(cfExecutable, ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
 cf.stdout.on('data', () => { });
 cf.stderr.on('data', (data) => {
     const output = data.toString();

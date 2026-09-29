@@ -5,8 +5,13 @@
     "main": "index.js",
     "scripts": {
         "build:client": "tsc src/client/app.ts --outDir public --target es2020 --lib dom,es2020 --esModuleInterop --skipLibCheck",
-        "build": "npm run build:client",
-        "test": "jest"
+        "build:server": "tsc src/server/relay.ts --outDir dist --target es2020 --module commonjs --esModuleInterop --skipLibCheck",
+        "build": "npm run build:client && npm run build:server",
+        "start": "node dist/relay.js",
+        "test": "node tests/run_all_tests.js",
+        "test:unit": "jest",
+        "test:e2e": "node tests/run_all_tests.js",
+        "latency": "node tools/measure_latency.js"
     },
     "keywords": [],
     "author": "",
