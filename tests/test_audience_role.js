@@ -3,7 +3,7 @@ const http = require('http');
 
 async function test() {
   const room = await new Promise((res, rej) => {
-    http.get('http://127.0.0.1:8080/room', r => {
+    http.get('http://127.0.0.1:8080/health', r => {
       let b = '';
       r.on('data', d => b += d);
       r.on('end', () => res(JSON.parse(b).room));

@@ -3,7 +3,7 @@ const http = require('http');
 
 async function getRoomCode() {
     return new Promise((resolve, reject) => {
-        http.get('http://127.0.0.1:8080/room', (res) => {
+        http.get('http://127.0.0.1:8080/health', (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
@@ -32,6 +32,7 @@ async function runScenario() {
 
     ws.on('open', () => {
         console.log("[STEP 2] WebSocket connected to relay.");
+        ws.send(JSON.stringify({ type: 'join', role: 'performer', name: 'Sharky', room: roomCode }));
     });
 
     ws.on('message', (msg) => {
@@ -41,9 +42,6 @@ async function runScenario() {
             console.log(`[STEP 2] Server assigned slot: ${assignedSlot}`);
             console.log(`[STEP 2] Received UI Blueprint with ${data.ui_blueprint.length} controls:`, 
                 data.ui_blueprint.map(c => `${c.id} (${c.label})`));
-            
-            // Send join message
-            ws.send(JSON.stringify({ type: 'join', name: 'Sharky', room: roomCode }));
             joined = true;
         }
     });

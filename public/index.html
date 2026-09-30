@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body class="touch-none">
 
@@ -48,15 +48,14 @@
                 <input type="text" id="player-name" placeholder="ENTER IDENTIFIER" maxlength="12" autocomplete="off" spellcheck="false">
             </div>
 
-            <!-- Role Selection -->
+            <!-- Access Pathway Selector (Binary: Performer vs Spectator) -->
             <div class="section-label-row">
-                <span class="section-label">ACCESS ROLE</span>
+                <span class="section-label">ACCESS PATHWAY</span>
                 <span id="selected-role-name" class="color-indicator-text" style="color: var(--status-cyan);">PERFORMER</span>
             </div>
-            <div class="role-selector-grid">
-                <button type="button" class="role-select-btn is-active" data-role="performer">PERFORMER (SLOT)</button>
-                <button type="button" class="role-select-btn" data-role="audience">AUDIENCE (SPECTATE)</button>
-                <button type="button" class="role-select-btn" data-role="master">MASTER (OPERATOR)</button>
+            <div class="role-selector-grid binary-grid">
+                <button type="button" class="role-select-btn is-active" data-role="performer">[ 01 // PERFORMER ]</button>
+                <button type="button" class="role-select-btn" data-role="audience">[ 02 // SPECTATOR ]</button>
             </div>
 
             <!-- Color Swatches (For Performer) -->
@@ -82,11 +81,54 @@
                 <span>CONNECT TO SURFACE</span>
                 <span class="arrow-glyph">&#8594;</span>
             </button>
+
+            <!-- Discreet FOH Operator Access Link -->
+            <div class="gate-footer">
+                <button type="button" id="open-master-modal-btn" class="text-action-link">[ // FOH OPERATOR CONSOLE ]</button>
+            </div>
         </div>
     </div>
 
     <!-- ============================================================== -->
-    <!-- ACTIVE CONTROLLER UI (OMNI-DEVICE SURFACE)                     -->
+    <!-- FOH OPERATOR AUTHENTICATION MODAL                              -->
+    <!-- ============================================================== -->
+    <div id="master-auth-modal" class="modal-overlay" style="display: none;">
+        <div class="mono-card modal-card">
+            <div class="mono-header">
+                <div class="status-pill">
+                    <span class="live-dot" style="background-color: var(--status-crimson);"></span>
+                    <span>RESTRICTED ACCESS</span>
+                </div>
+                <h2>FOH OPERATOR LOGIN</h2>
+                <p class="subtitle">ENTER PRIVATE 6-DIGIT MASTER KEY</p>
+            </div>
+            
+            <div id="master-error-msg" class="error-banner" style="display: none;"></div>
+
+            <div class="section-label">ROOM IDENTIFIER</div>
+            <div class="input-block">
+                <input type="text" id="master-room-input" placeholder="4-CHAR ROOM CODE" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false">
+            </div>
+
+            <div class="section-label">MASTER KEY (OP-XXXXXX)</div>
+            <div class="input-block">
+                <input type="password" id="master-key-input" placeholder="OPERATOR KEY" maxlength="12" autocomplete="off" spellcheck="false">
+            </div>
+            
+            <div class="modal-actions-row">
+                <button type="button" id="master-auth-submit-btn" class="mono-btn primary-action">
+                    <span>AUTHENTICATE</span>
+                    <span class="arrow-glyph">&#8594;</span>
+                </button>
+                <button type="button" id="master-auth-cancel-btn" class="mono-btn secondary-action">
+                    <span>CANCEL</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- GENERAL ATTENDEE SURFACE (#ui)                                 -->
     <!-- ============================================================== -->
     <div id="ui" style="display: none;">
         <!-- Top HUD Bar -->
@@ -102,20 +144,11 @@
                 <button id="exit-btn" class="mono-btn micro-btn">DISCONNECT</button>
             </div>
         </header>
-
-        <!-- Role Tier Tabs (Inside Active Session) -->
-        <nav class="active-role-nav">
-            <button class="role-nav-tab is-active" data-view="performer">01 // PERFORMER</button>
-            <button class="role-nav-tab" data-view="master">02 // MASTER CONSOLE</button>
-            <button class="role-nav-tab" data-view="audience">03 // AUDIENCE HYPE</button>
-        </nav>
         
         <!-- Main Interactive Workspace -->
         <main id="control-area">
             
-            <!-- ========================================================== -->
-            <!-- TIER 2: PERFORMER SURFACE (TOUCHDESIGNER CONTROLS)          -->
-            <!-- ========================================================== -->
+            <!-- PERFORMER SURFACE (TOUCHDESIGNER CONTROLS) -->
             <div id="view-performer" class="role-view-container">
                 <!-- Left: Analog Joystick Reticle & 60Hz Oscilloscope Canvas -->
                 <section id="joystick-section" class="surface-pane">
@@ -151,7 +184,7 @@
                         <span id="performer-status-badge" class="hud-tag cyan">ACTIVE LINK</span>
                     </div>
 
-                    <!-- 4 Action Trigger Blocks (Aligned with TD Blueprints) -->
+                    <!-- 4 Action Trigger Blocks -->
                     <div id="dynamic-controls" class="actions-grid">
                         <button type="button" class="action-btn mono-btn" id="btn-b1" data-id="b1">
                             <span class="btn-primary-title">ROTATE 360°</span>
@@ -198,72 +231,7 @@
                 </section>
             </div>
 
-            <!-- ========================================================== -->
-            <!-- TIER 1: MASTER OPERATOR CONSOLE                            -->
-            <!-- ========================================================== -->
-            <div id="view-master" class="role-view-container master-dashboard" style="display: none;">
-                <div class="master-header-row">
-                    <span class="master-title">FOH MASTER BROADCAST CONTROLLER</span>
-                    <span class="hud-tag green" id="master-auth-badge">HOST: READY</span>
-                </div>
-
-                <div class="master-cards-grid">
-                    <!-- Scene Switcher -->
-                    <div class="master-block">
-                        <div class="master-block-header">GLOBAL SHOW SCENE</div>
-                        <div class="scene-switcher-buttons">
-                            <button type="button" class="scene-btn is-active" data-scene="aquarium">AQUARIUM</button>
-                            <button type="button" class="scene-btn" data-scene="canvas">CANVAS</button>
-                            <button type="button" class="scene-btn" data-scene="kinetic">KINETIC</button>
-                        </div>
-                        <p class="master-note">Transmits `/bridge/scene` OSC packet live to TouchDesigner.</p>
-                    </div>
-
-                    <!-- Emergency Cues -->
-                    <div class="master-block">
-                        <div class="master-block-header">EMERGENCY STAGE CUES</div>
-                        <div class="cues-row">
-                            <button type="button" class="mono-btn cue-danger-btn" id="cue-reset-btn">RESET ENGINE</button>
-                            <button type="button" class="mono-btn cue-danger-btn" id="cue-purge-btn">PURGE SLOTS</button>
-                        </div>
-                        <p class="master-note">Clears lingering entities and restores default simulation state.</p>
-                    </div>
-                </div>
-
-                <!-- Active Performer Slots Roster -->
-                <div class="master-block roster-block">
-                    <div class="master-block-header flex-between">
-                        <span>CONNECTED PERFORMER ROSTER</span>
-                        <span id="roster-count" class="roster-pill">LIVE SLOTS</span>
-                    </div>
-                    <div class="roster-table-wrap">
-                        <table class="mono-table">
-                          <thead>
-                            <tr>
-                              <th>SLOT</th>
-                              <th>NAME</th>
-                              <th>COLOR</th>
-                              <th>RTT</th>
-                              <th>ACTION</th>
-                            </tr>
-                          </thead>
-                          <tbody id="roster-tbody">
-                            <tr>
-                              <td>#06</td>
-                              <td>ACTIVE_PLAYER</td>
-                              <td><span class="slot-dot-inline" style="background:#00f0ff;"></span> CYAN</td>
-                              <td>14ms</td>
-                              <td><button type="button" class="kick-text-btn" data-kick="6">DISCONNECT</button></td>
-                            </tr>
-                          </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ========================================================== -->
-            <!-- TIER 3: AUDIENCE SPECTATOR HYPE SURFACE                    -->
-            <!-- ========================================================== -->
+            <!-- AUDIENCE SPECTATOR HYPE SURFACE -->
             <div id="view-audience" class="role-view-container audience-dashboard" style="display: none;">
                 <div class="audience-inner">
                     <div class="audience-header">
@@ -277,22 +245,22 @@
                         <span class="bpm-label">TAP TO BEAT</span>
                     </button>
 
-                    <!-- Crowd Reaction Matrix -->
+                    <!-- Crowd Reaction Matrix (Zero Emojis // Swiss Brutalist Badges) -->
                     <div class="reactions-matrix">
-                        <button type="button" class="reaction-tile" data-reaction="fire">
-                            <span class="reaction-emoji">🔥</span>
+                        <button type="button" class="reaction-tile" data-reaction="ignite">
+                            <span class="reaction-badge">[01 // IGN]</span>
                             <span class="reaction-label">IGNITE</span>
                         </button>
-                        <button type="button" class="reaction-tile" data-reaction="bolt">
-                            <span class="reaction-emoji">⚡</span>
+                        <button type="button" class="reaction-tile" data-reaction="strobe">
+                            <span class="reaction-badge">[02 // STRB]</span>
                             <span class="reaction-label">STROBE</span>
                         </button>
-                        <button type="button" class="reaction-tile" data-reaction="heart">
-                            <span class="reaction-emoji">❤️</span>
-                            <span class="reaction-label">CHORUS</span>
+                        <button type="button" class="reaction-tile" data-reaction="flux">
+                            <span class="reaction-badge">[03 // FLUX]</span>
+                            <span class="reaction-label">FLUX</span>
                         </button>
-                        <button type="button" class="reaction-tile" data-reaction="party">
-                            <span class="reaction-emoji">🎉</span>
+                        <button type="button" class="reaction-tile" data-reaction="burst">
+                            <span class="reaction-badge">[04 // BRST]</span>
                             <span class="reaction-label">BURST</span>
                         </button>
                     </div>
@@ -302,7 +270,111 @@
         </main>
     </div>
 
+    <!-- ============================================================== -->
+    <!-- DEDICATED FOH MASTER OPERATOR CONSOLE (#master-ui)             -->
+    <!-- ============================================================== -->
+    <div id="master-ui" style="display: none;">
+        <header id="master-status-bar">
+            <div class="hud-left">
+                <span class="slot-color-dot" style="background-color: var(--status-crimson);"></span>
+                <span class="master-header-brand">TDBRIDGE // FOH OPERATOR CONSOLE</span>
+            </div>
+            <div class="hud-center">
+                <span id="master-td-status" class="hud-tag green">[ONLINE // 60.0 FPS]</span>
+                <span id="master-rtt-status" class="hud-tag cyan">RTT: --ms</span>
+            </div>
+            <div class="hud-right">
+                <button id="master-exit-btn" class="mono-btn micro-btn">LOCK / EXIT</button>
+            </div>
+        </header>
+
+        <main class="master-workspace">
+            <div class="master-top-grid">
+                <!-- Block 1: Global Show Scene -->
+                <div class="master-block">
+                    <div class="master-block-header">GLOBAL SHOW SCENE</div>
+                    <div class="scene-switcher-buttons">
+                        <button type="button" class="scene-btn is-active" data-scene="aquarium">01 // AQUARIUM</button>
+                        <button type="button" class="scene-btn" data-scene="canvas">02 // CANVAS</button>
+                        <button type="button" class="scene-btn" data-scene="kinetic">03 // KINETIC</button>
+                    </div>
+                    <p class="master-note">Transmits `/bridge/scene` OSC packet live to TouchDesigner.</p>
+                </div>
+
+                <!-- Block 2: Stage Controller Profile Switcher -->
+                <div class="master-block">
+                    <div class="master-block-header">STAGE CONTROLLER PROFILE</div>
+                    <div class="profile-switcher-buttons" id="master-profile-buttons">
+                        <button type="button" class="profile-btn is-active" data-profile="gamepad">GAMEPAD</button>
+                        <button type="button" class="profile-btn" data-profile="touchpad">TOUCHPAD</button>
+                        <button type="button" class="profile-btn" data-profile="faderbank">FADER BANK</button>
+                        <button type="button" class="profile-btn" data-profile="audience">AUDIENCE</button>
+                    </div>
+                    <p class="master-note">Hot-reloads UI layout across all active performer screens.</p>
+                </div>
+
+                <!-- Block 3: Emergency Cues -->
+                <div class="master-block">
+                    <div class="master-block-header">EMERGENCY STAGE CUES</div>
+                    <div class="cues-row">
+                        <button type="button" class="mono-btn cue-danger-btn" id="cue-reset-btn">RESET ENGINE</button>
+                        <button type="button" class="mono-btn cue-danger-btn" id="cue-purge-btn">PURGE SLOTS</button>
+                    </div>
+                    <p class="master-note">Clears lingering entities and restores default simulation state.</p>
+                </div>
+
+                <!-- Block 4: Telemetry Monitor -->
+                <div class="master-block telemetry-hud-block">
+                    <div class="master-block-header">SYSTEM OBSERVABILITY</div>
+                    <div class="telemetry-metric-grid">
+                        <div class="metric-cell">
+                            <span class="metric-label">PERFORMERS</span>
+                            <span class="metric-val" id="metric-performers">0 / 95</span>
+                        </div>
+                        <div class="metric-cell">
+                            <span class="metric-label">SPECTATORS</span>
+                            <span class="metric-val" id="metric-spectators">0</span>
+                        </div>
+                        <div class="metric-cell">
+                            <span class="metric-label">TD FPS</span>
+                            <span class="metric-val" id="metric-td-fps">60.0</span>
+                        </div>
+                        <div class="metric-cell">
+                            <span class="metric-label">ENGINE ERRORS</span>
+                            <span class="metric-val" id="metric-td-errors">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performer Roster Table -->
+            <div class="master-block roster-block">
+                <div class="master-block-header flex-between">
+                    <span>CONNECTED PERFORMER ROSTER</span>
+                    <span id="roster-count-badge" class="roster-pill">0 ACTIVE</span>
+                </div>
+                <div class="roster-table-wrap">
+                    <table class="mono-table">
+                        <thead>
+                            <tr>
+                                <th>SLOT</th>
+                                <th>IDENTIFIER</th>
+                                <th>PALETTE</th>
+                                <th>RTT</th>
+                                <th>UPTIME</th>
+                                <th>ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody id="master-roster-tbody">
+                            <!-- Injected strictly via textContent DOM creation -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
     <!-- Client Script -->
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=9"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@ const http = require('http');
 
 async function getRoomCode() {
     return new Promise((resolve, reject) => {
-        http.get('http://127.0.0.1:8080/room', (res) => {
+        http.get('http://127.0.0.1:8080/health', (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
@@ -25,13 +25,16 @@ async function main() {
     let joined = false;
     let assignedSlot = -1;
 
+    ws.on('open', () => {
+        ws.send(JSON.stringify({ type: 'join', role: 'performer', name: 'Moby_Dick', room: room }));
+    });
+
     ws.on('message', (data) => {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'assigned_slot') {
             assignedSlot = msg.slot;
             console.log(`Assigned Slot: ${assignedSlot}`);
             console.log("Blueprint controls received:", msg.ui_blueprint.map(c => `${c.id}: ${c.label}`));
-            ws.send(JSON.stringify({ type: 'join', name: 'Moby_Dick', room: room }));
             joined = true;
         }
     });

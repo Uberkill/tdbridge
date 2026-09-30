@@ -1,6 +1,6 @@
 // ============================================================================
 // TDBRIDGE // SWISS GRAPHIC MONOLITH CLIENT APPLICATION
-// Multi-touch, role-based, real RTT telemetry, 60Hz performance controller.
+// Multi-touch, role-segregated, cryptographic master console, 60Hz input pipeline.
 // ============================================================================
 // ============================================================================
 // 0. TELEMETRY & FLIGHT RECORDER (Global Exception Traps)
@@ -48,7 +48,8 @@ window.onunhandledrejection = (event) => {
 };
 let ws = null;
 let currentSlot = -1;
-let currentRole = "performer";
+let currentRole = 'performer';
+let masterSessionToken = null;
 let outX = 0;
 let outY = 0;
 let lastSentX = -999;
@@ -63,9 +64,12 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 let pingIntervalTimer = null;
 let lastPingSentTime = 0;
 let currentRtt = 0;
-// DOM Elements
+// Top-Level View Containers
 const gate = document.getElementById('gate');
 const ui = document.getElementById('ui');
+const masterUi = document.getElementById('master-ui');
+const masterAuthModal = document.getElementById('master-auth-modal');
+// General Lobby Controls
 const joinBtn = document.getElementById('join-btn');
 const exitBtn = document.getElementById('exit-btn');
 const slotIndicator = document.getElementById('slot-indicator');
@@ -76,6 +80,24 @@ const errorMsg = document.getElementById('error-msg');
 const nameInput = document.getElementById('player-name');
 const randomNameBtn = document.getElementById('random-name-btn');
 const vectorReadout = document.getElementById('vector-readout');
+const swatchSection = document.getElementById('swatch-section');
+// FOH Master Modal Controls
+const openMasterModalBtn = document.getElementById('open-master-modal-btn');
+const masterAuthCancelBtn = document.getElementById('master-auth-cancel-btn');
+const masterAuthSubmitBtn = document.getElementById('master-auth-submit-btn');
+const masterRoomInput = document.getElementById('master-room-input');
+const masterKeyInput = document.getElementById('master-key-input');
+const masterErrorMsg = document.getElementById('master-error-msg');
+// FOH Master Console Controls
+const masterExitBtn = document.getElementById('master-exit-btn');
+const masterTdStatus = document.getElementById('master-td-status');
+const masterRttStatus = document.getElementById('master-rtt-status');
+const rosterCountBadge = document.getElementById('roster-count-badge');
+const masterRosterTbody = document.getElementById('master-roster-tbody');
+const metricPerformers = document.getElementById('metric-performers');
+const metricSpectators = document.getElementById('metric-spectators');
+const metricTdFps = document.getElementById('metric-td-fps');
+const metricTdErrors = document.getElementById('metric-td-errors');
 // Sliders: s1 (Speed) and s2 (Size)
 const sliderS1 = document.getElementById('slider-s1');
 const sliderS1Readout = document.getElementById('slider-s1-readout');
@@ -89,7 +111,6 @@ const vectorCanvas = document.getElementById('vector-canvas');
 const vctx = vectorCanvas ? vectorCanvas.getContext('2d') : null;
 // Views
 const viewPerformer = document.getElementById('view-performer');
-const viewMaster = document.getElementById('view-master');
 const viewAudience = document.getElementById('view-audience');
 // Segmented Room Code Elements
 const codeBoxes = [
@@ -102,7 +123,6 @@ const roomCodeHidden = document.getElementById('room-code-input');
 // ============================================================================
 // 1. INITIALIZATION & URL HANDLING
 // ============================================================================
-// Dynamic Branding & Host Resolution
 const hostname = window.location.hostname;
 const protocol = window.location.protocol;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '' || hostname.startsWith('192.168') || hostname.startsWith('10.');
@@ -118,21 +138,8 @@ if (initialRoom.length === 4) {
     }
     if (roomCodeHidden)
         roomCodeHidden.value = initialRoom;
-}
-else {
-    fetch(`${httpUrlBase}/room`)
-        .then(r => r.json())
-        .then(d => {
-        if (d.room && d.room.length === 4) {
-            for (let i = 0; i < 4; i++) {
-                if (codeBoxes[i] && !codeBoxes[i].value)
-                    codeBoxes[i].value = d.room[i];
-            }
-            if (roomCodeHidden && !roomCodeHidden.value)
-                roomCodeHidden.value = d.room;
-        }
-    })
-        .catch(() => { });
+    if (masterRoomInput)
+        masterRoomInput.value = initialRoom;
 }
 codeBoxes.forEach((box, idx) => {
     if (!box)
@@ -167,6 +174,8 @@ function updateRoomCodeValue() {
     const code = codeBoxes.map(b => b?.value || '').join('').toUpperCase();
     if (roomCodeHidden)
         roomCodeHidden.value = code;
+    if (masterRoomInput && !masterRoomInput.value)
+        masterRoomInput.value = code;
     return code;
 }
 // Random Handle Generator
@@ -198,15 +207,15 @@ swatches.forEach(s => {
             puckCenterDot.style.backgroundColor = selectedColorHex;
     });
 });
-// Role Selection in Gate
+// Binary Pathway Selection in Gate ([01 // PERFORMER] vs [02 // SPECTATOR])
 const gateRoleBtns = document.querySelectorAll('.role-select-btn');
 const selectedRoleName = document.getElementById('selected-role-name');
-const swatchSection = document.getElementById('swatch-section');
 gateRoleBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         gateRoleBtns.forEach(b => b.classList.remove('is-active'));
         btn.classList.add('is-active');
-        currentRole = btn.getAttribute('data-role') || 'performer';
+        const role = btn.getAttribute('data-role');
+        currentRole = (role === 'audience' || role === 'spectator') ? 'audience' : 'performer';
         if (selectedRoleName)
             selectedRoleName.innerText = currentRole.toUpperCase();
         if (swatchSection) {
@@ -214,26 +223,6 @@ gateRoleBtns.forEach(btn => {
         }
     });
 });
-// In-Session Role Navigation Tabs
-const roleNavTabs = document.querySelectorAll('.role-nav-tab');
-roleNavTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        roleNavTabs.forEach(t => t.classList.remove('is-active'));
-        tab.classList.add('is-active');
-        const view = tab.getAttribute('data-view') || 'performer';
-        switchActiveRoleView(view);
-    });
-});
-function switchActiveRoleView(view) {
-    if (viewPerformer)
-        viewPerformer.style.display = view === 'performer' ? 'flex' : 'none';
-    if (viewMaster)
-        viewMaster.style.display = view === 'master' ? 'flex' : 'none';
-    if (viewAudience)
-        viewAudience.style.display = view === 'audience' ? 'flex' : 'none';
-    if (view === 'performer')
-        resizeCanvas();
-}
 fetch(`${httpUrlBase}/branding`)
     .then(r => r.json())
     .then(b => {
@@ -246,7 +235,69 @@ fetch(`${httpUrlBase}/branding`)
 })
     .catch(() => { });
 // ============================================================================
-// 2. CONNECTION LIFECYCLE & REAL RTT PING
+// 2. FOH OPERATOR AUTHENTICATION MODAL LOGIC
+// ============================================================================
+if (openMasterModalBtn) {
+    openMasterModalBtn.addEventListener('click', () => {
+        const currentRoom = updateRoomCodeValue();
+        if (masterRoomInput && currentRoom)
+            masterRoomInput.value = currentRoom;
+        if (masterErrorMsg)
+            masterErrorMsg.style.display = 'none';
+        masterAuthModal.style.display = 'flex';
+        masterKeyInput.focus();
+    });
+}
+if (masterAuthCancelBtn) {
+    masterAuthCancelBtn.addEventListener('click', () => {
+        masterAuthModal.style.display = 'none';
+        if (masterKeyInput)
+            masterKeyInput.value = '';
+    });
+}
+if (masterAuthSubmitBtn) {
+    masterAuthSubmitBtn.addEventListener('click', executeMasterAuth);
+}
+if (masterKeyInput) {
+    masterKeyInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter')
+            executeMasterAuth();
+    });
+}
+function showMasterError(msg) {
+    if (masterErrorMsg) {
+        masterErrorMsg.innerText = `[!] ${msg}`;
+        masterErrorMsg.style.display = 'block';
+    }
+}
+function executeMasterAuth() {
+    const room = (masterRoomInput?.value || '').trim().toUpperCase();
+    const key = (masterKeyInput?.value || '').trim().toUpperCase();
+    if (room.length !== 4) {
+        showMasterError("PLEASE ENTER 4-CHARACTER ROOM CODE");
+        return;
+    }
+    if (!key) {
+        showMasterError("PLEASE ENTER MASTER KEY");
+        return;
+    }
+    if (masterErrorMsg)
+        masterErrorMsg.style.display = 'none';
+    // If socket is already open, send master_login
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'master_login', room, key }));
+        return;
+    }
+    // Connect WS and send master_login on open
+    ws = new WebSocket(wsUrlBase);
+    attachWebSocketHandlers();
+    ws.onopen = () => {
+        ws?.send(JSON.stringify({ type: 'master_login', room, key }));
+        startPingLoop();
+    };
+}
+// ============================================================================
+// 3. GENERAL ATTENDEE ONBOARDING & CONNECTION
 // ============================================================================
 joinBtn.addEventListener('click', () => {
     reconnectAttempts = 0;
@@ -270,14 +321,34 @@ joinBtn.addEventListener('click', () => {
     }
     gate.style.display = 'none';
     ui.style.display = 'flex';
-    switchActiveRoleView(currentRole);
+    if (currentRole === 'performer') {
+        if (viewPerformer)
+            viewPerformer.style.display = 'flex';
+        if (viewAudience)
+            viewAudience.style.display = 'none';
+        resizeCanvas();
+    }
+    else {
+        if (viewPerformer)
+            viewPerformer.style.display = 'none';
+        if (viewAudience)
+            viewAudience.style.display = 'flex';
+    }
     connectWS(room);
 });
-exitBtn.addEventListener('click', () => {
+exitBtn.addEventListener('click', disconnectSession);
+if (masterExitBtn)
+    masterExitBtn.addEventListener('click', disconnectSession);
+function disconnectSession() {
     reconnectAttempts = 0;
+    masterSessionToken = null;
+    try {
+        sessionStorage.removeItem('tdbridge_master_token');
+    }
+    catch (e) { }
     flushInputs();
     if (ws)
-        ws.close();
+        ws.close(1000, 'User disconnect');
     if (reconnectTimer) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
@@ -287,9 +358,11 @@ exitBtn.addEventListener('click', () => {
         pingIntervalTimer = null;
     }
     ui.style.display = 'none';
+    if (masterUi)
+        masterUi.style.display = 'none';
     gate.style.display = 'flex';
     currentSlot = -1;
-});
+}
 function showError(msg) {
     if (errorMsg) {
         errorMsg.innerText = `[!] ${msg}`;
@@ -303,6 +376,7 @@ function hideError() {
 function connectWS(roomCode) {
     slotIndicator.innerText = "CONNECTING...";
     ws = new WebSocket(wsUrlBase);
+    attachWebSocketHandlers();
     ws.onopen = () => {
         reconnectAttempts = 0;
         slotIndicator.innerText = "LINKING...";
@@ -316,9 +390,37 @@ function connectWS(roomCode) {
         }));
         startPingLoop();
     };
+}
+function attachWebSocketHandlers() {
+    if (!ws)
+        return;
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
+            // Master Login Responses
+            if (data.type === 'master_login_fail') {
+                showMasterError(data.reason || 'Authentication Failed');
+                return;
+            }
+            if (data.type === 'master_login_success') {
+                masterSessionToken = data.token;
+                try {
+                    sessionStorage.setItem('tdbridge_master_token', data.token);
+                }
+                catch (e) { }
+                masterAuthModal.style.display = 'none';
+                gate.style.display = 'none';
+                ui.style.display = 'none';
+                if (masterUi)
+                    masterUi.style.display = 'flex';
+                return;
+            }
+            // Live Performer Roster Update (Streamed to Master Console)
+            if (data.type === 'roster_update') {
+                handleRosterUpdate(data);
+                return;
+            }
+            // General Attendee Handshakes
             if (data.type === 'assigned_slot') {
                 reconnectAttempts = 0;
                 currentSlot = data.slot;
@@ -327,20 +429,24 @@ function connectWS(roomCode) {
             }
             else if (data.type === 'audience_joined') {
                 reconnectAttempts = 0;
-                slotIndicator.innerText = `AUDIENCE`;
+                slotIndicator.innerText = `SPECTATOR`;
             }
             else if (data.type === 'pong') {
                 handlePong(data);
             }
+            else if (data.type === 'kicked') {
+                showError(`SESSION TERMINATED: ${data.reason || 'Disconnected by operator'}`);
+                disconnectSession();
+                return;
+            }
             else if (data.type === 'rejected') {
                 const reason = data.reason || 'REJECTED';
                 showError(`JOIN REJECTED: ${reason}`);
-                exitBtn.click();
+                disconnectSession();
                 return;
             }
             else if (data.type === 'error') {
                 showError(data.message || 'CONNECTION ERROR');
-                exitBtn.click();
                 return;
             }
         }
@@ -351,16 +457,15 @@ function connectWS(roomCode) {
             clearInterval(pingIntervalTimer);
             pingIntervalTimer = null;
         }
-        // 1000 = Clean exit, 4001 = Invalid room, 4002 = Room full
-        if (event.code === 1000 || event.code === 4001 || event.code === 4002) {
+        // Clean exit or explicit rejections
+        if (event.code === 1000 || event.code === 4001 || event.code === 4002 || event.code === 4003) {
             slotIndicator.innerText = "OFFLINE";
             showError(`DISCONNECTED (${event.code}): ${event.reason || 'Session ended'}`);
-            ui.style.display = 'none';
-            gate.style.display = 'flex';
-            currentSlot = -1;
+            disconnectSession();
             return;
         }
-        if (ui.style.display === 'flex') {
+        // Auto-reconnect for unexpected drops
+        if (ui.style.display === 'flex' || (masterUi && masterUi.style.display === 'flex')) {
             slotIndicator.innerText = "DISCONNECTED";
             if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
                 reconnectAttempts++;
@@ -369,109 +474,218 @@ function connectWS(roomCode) {
                     rttStatus.innerText = `LINK: DROPPED // RETRY ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} IN ${backoffMs / 1000}s`;
                     rttStatus.className = "hud-tag crimson";
                 }
-                reconnectTimer = setTimeout(() => connectWS(roomCode), backoffMs);
+                const room = updateRoomCodeValue();
+                reconnectTimer = setTimeout(() => connectWS(room), backoffMs);
             }
             else {
                 showError("CONNECTION LOST: Server unreachable after 5 attempts");
-                ui.style.display = 'none';
-                gate.style.display = 'flex';
-                currentSlot = -1;
+                disconnectSession();
             }
         }
     };
 }
-// Real RTT Ping/Pong Protocol
+// ============================================================================
+// 4. REAL RTT PING PROTOCOL
+// ============================================================================
 function startPingLoop() {
     if (pingIntervalTimer)
         clearInterval(pingIntervalTimer);
     pingIntervalTimer = setInterval(() => {
-        if (!ws || ws.readyState !== WebSocket.OPEN)
-            return;
-        lastPingSentTime = performance.now();
-        ws.send(JSON.stringify({
-            type: 'ping',
-            t: lastPingSentTime,
-            rtt: currentRtt,
-            fps: measuredClientFps
-        }));
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            lastPingSentTime = performance.now();
+            ws.send(JSON.stringify({ type: 'ping', t: Date.now(), rtt: currentRtt }));
+        }
     }, 2000);
 }
 function handlePong(data) {
-    const now = performance.now();
-    const sentTime = Number(data.t || lastPingSentTime);
-    currentRtt = Math.max(1, Math.round(now - sentTime));
-    let tagClass = "hud-tag green";
-    let statusText = `RTT: ${currentRtt}ms // ${measuredClientFps.toFixed(1)} FPS`;
-    if (currentRtt > 150) {
-        tagClass = "hud-tag crimson";
-        statusText = `RTT: ${currentRtt}ms // DEGRADED`;
-    }
-    else if (currentRtt > 60) {
-        tagClass = "hud-tag amber";
-        statusText = `RTT: ${currentRtt}ms // ${measuredClientFps.toFixed(1)} FPS`;
-    }
-    if (rttStatus) {
-        rttStatus.innerText = statusText;
-        rttStatus.className = tagClass;
-    }
-    if (gateTelemetry) {
-        gateTelemetry.innerText = `LINK VERIFIED // RTT: ${currentRtt}ms // ${measuredClientFps.toFixed(1)} FPS`;
-    }
-}
-function flushInputs() {
-    outX = 0;
-    outY = 0;
-    lastSentX = -999;
-    lastSentY = -999;
-    if (ws && ws.readyState === WebSocket.OPEN && currentSlot !== -1) {
-        ws.send(JSON.stringify({ type: 'flush' }));
+    if (lastPingSentTime > 0) {
+        currentRtt = Math.round(performance.now() - lastPingSentTime);
+        const rttStr = `RTT: ${currentRtt}ms // LINKED`;
+        if (rttStatus) {
+            rttStatus.innerText = rttStr;
+            rttStatus.className = currentRtt < 50 ? "hud-tag green" : (currentRtt < 150 ? "hud-tag cyan" : "hud-tag amber");
+        }
+        if (gateTelemetry) {
+            gateTelemetry.innerText = `LINK READY // RTT: ${currentRtt}ms`;
+        }
+        if (masterRttStatus) {
+            masterRttStatus.innerText = `RTT: ${currentRtt}ms`;
+        }
     }
 }
 // ============================================================================
-// 3. ANALOG JOYSTICK & 60Hz VECTOR OSCILLOSCOPE
+// 5. MASTER ROSTER SYNCHRONIZATION & ACTIONS
+// ============================================================================
+function handleRosterUpdate(data) {
+    if (!masterUi || masterUi.style.display === 'none')
+        return;
+    if (rosterCountBadge) {
+        rosterCountBadge.innerText = `${data.performers?.length || 0} ACTIVE`;
+    }
+    if (metricPerformers) {
+        metricPerformers.innerText = `${data.performers?.length || 0} / 95`;
+    }
+    if (metricSpectators) {
+        metricSpectators.innerText = String(data.spectator_count || 0);
+    }
+    if (metricTdFps) {
+        metricTdFps.innerText = String(data.td_fps || '0.0');
+    }
+    if (masterTdStatus) {
+        masterTdStatus.innerText = data.td_connected
+            ? `[ONLINE // ${data.td_fps || '60.0'} FPS]`
+            : `[OFFLINE // LINK DOWN]`;
+        masterTdStatus.className = data.td_connected ? "hud-tag green" : "hud-tag crimson";
+    }
+    // Build Roster Table strictly using textContent & DOM Elements (Zero innerHTML)
+    if (masterRosterTbody && Array.isArray(data.performers)) {
+        masterRosterTbody.textContent = ''; // Safe wipe of child nodes
+        if (data.performers.length === 0) {
+            const emptyTr = document.createElement('tr');
+            const emptyTd = document.createElement('td');
+            emptyTd.colSpan = 6;
+            emptyTd.textContent = 'NO ACTIVE PERFORMERS (ROOM STANDING BY)';
+            emptyTd.style.textAlign = 'center';
+            emptyTd.style.color = 'var(--text-dim)';
+            emptyTr.appendChild(emptyTd);
+            masterRosterTbody.appendChild(emptyTr);
+            return;
+        }
+        data.performers.forEach((p) => {
+            const tr = document.createElement('tr');
+            // Slot column
+            const tdSlot = document.createElement('td');
+            tdSlot.textContent = `#${String(p.slot).padStart(2, '0')}`;
+            tr.appendChild(tdSlot);
+            // Name column
+            const tdName = document.createElement('td');
+            tdName.textContent = String(p.name || 'UNKNOWN');
+            tr.appendChild(tdName);
+            // Palette swatch column
+            const tdColor = document.createElement('td');
+            const dot = document.createElement('span');
+            dot.className = 'slot-dot-inline';
+            dot.style.backgroundColor = p.color || '#ffffff';
+            tdColor.appendChild(dot);
+            const colorText = document.createTextNode(p.color || '#ffffff');
+            tdColor.appendChild(colorText);
+            tr.appendChild(tdColor);
+            // RTT column
+            const tdRtt = document.createElement('td');
+            tdRtt.textContent = `${p.rtt || 0}ms`;
+            tr.appendChild(tdRtt);
+            // Uptime column
+            const tdUptime = document.createElement('td');
+            tdUptime.textContent = `${p.connected_seconds || 0}s`;
+            tr.appendChild(tdUptime);
+            // Kick action column
+            const tdAction = document.createElement('td');
+            const kickBtn = document.createElement('button');
+            kickBtn.type = 'button';
+            kickBtn.className = 'kick-text-btn';
+            kickBtn.textContent = 'DISCONNECT';
+            kickBtn.onclick = () => {
+                sendHostCommand('kick_slot', { slot: p.slot });
+            };
+            tdAction.appendChild(kickBtn);
+            tr.appendChild(tdAction);
+            masterRosterTbody.appendChild(tr);
+        });
+    }
+}
+// Master Scene Switcher
+const sceneButtons = document.querySelectorAll('.scene-btn');
+sceneButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        sceneButtons.forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        const sc = btn.getAttribute('data-scene') || 'aquarium';
+        sendHostCommand('scene_switch', { scene: sc });
+    });
+});
+// Master Profile Switcher
+const profileButtons = document.querySelectorAll('.profile-btn');
+profileButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        profileButtons.forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        const prof = btn.getAttribute('data-profile') || 'gamepad';
+        sendHostCommand('change_profile', { profile: prof });
+    });
+});
+// Master Emergency Cues
+const cueResetBtn = document.getElementById('cue-reset-btn');
+if (cueResetBtn) {
+    cueResetBtn.addEventListener('click', () => {
+        sendHostCommand('system_reset', {});
+    });
+}
+const cuePurgeBtn = document.getElementById('cue-purge-btn');
+if (cuePurgeBtn) {
+    cuePurgeBtn.addEventListener('click', () => {
+        sendHostCommand('slot_purge', {});
+    });
+}
+function sendHostCommand(action, extra) {
+    if (ws && ws.readyState === WebSocket.OPEN && masterSessionToken) {
+        ws.send(JSON.stringify({
+            type: 'host_command',
+            action,
+            token: masterSessionToken,
+            ...extra
+        }));
+    }
+}
+// ============================================================================
+// 6. JOYSTICK ERGONOMICS & POINTER CAPTURE
 // ============================================================================
 let isDraggingJoy = false;
-let joyPointerId = -1;
+let joyActivePointerId = null;
 let joyBounds = null;
 const trailBuffer = [];
 function updateJoyBounds() {
-    if (joystickBoundary) {
+    if (joystickBoundary)
         joyBounds = joystickBoundary.getBoundingClientRect();
-    }
-    resizeCanvas();
 }
-window.addEventListener('resize', updateJoyBounds);
-window.addEventListener('orientationchange', updateJoyBounds);
 function resizeCanvas() {
-    if (!joystickBoundary || !vectorCanvas || !vctx)
+    if (!vectorCanvas || !joystickBoundary)
         return;
-    const rect = joystickBoundary.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    vectorCanvas.width = rect.width * dpr;
-    vectorCanvas.height = rect.height * dpr;
-    vctx.scale(dpr, dpr);
+    updateJoyBounds();
+    if (joyBounds) {
+        vectorCanvas.width = joyBounds.width;
+        vectorCanvas.height = joyBounds.height;
+    }
 }
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
 if (joystickBoundary) {
     joystickBoundary.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
         isDraggingJoy = true;
-        joyPointerId = e.pointerId;
+        joyActivePointerId = e.pointerId;
         try {
             joystickBoundary.setPointerCapture(e.pointerId);
         }
         catch (err) { }
         updateJoyBounds();
         handleJoyMove(e);
+        safeHaptic();
     });
     joystickBoundary.addEventListener('pointermove', (e) => {
-        if (!isDraggingJoy || e.pointerId !== joyPointerId)
+        if (!isDraggingJoy || e.pointerId !== joyActivePointerId)
             return;
+        e.preventDefault();
         handleJoyMove(e);
     });
     const resetJoy = (e) => {
-        if (e.pointerId !== joyPointerId && joyPointerId !== -1)
+        if (e.pointerId !== joyActivePointerId && joyActivePointerId !== null)
             return;
         isDraggingJoy = false;
-        joyPointerId = -1;
+        joyActivePointerId = null;
+        try {
+            joystickBoundary.releasePointerCapture(e.pointerId);
+        }
+        catch (err) { }
         outX = 0;
         outY = 0;
         if (joystickPuck) {
@@ -514,21 +728,7 @@ function handleJoyMove(e) {
     if (trailBuffer.length > 24)
         trailBuffer.shift();
 }
-// 60Hz Oscilloscope Rendering Loop & Real Client FPS Measurement
-let lastRafTime = performance.now();
-const fpsSamples = [];
-let measuredClientFps = 60.0;
 function renderOscilloscope() {
-    const now = performance.now();
-    const delta = now - lastRafTime;
-    lastRafTime = now;
-    if (delta > 0 && delta < 500) {
-        fpsSamples.push(1000 / delta);
-        if (fpsSamples.length > 60)
-            fpsSamples.shift();
-        const sum = fpsSamples.reduce((a, b) => a + b, 0);
-        measuredClientFps = Math.round((sum / fpsSamples.length) * 10) / 10;
-    }
     if (vectorCanvas && vctx && viewPerformer && viewPerformer.style.display !== 'none') {
         const rect = joystickBoundary ? joystickBoundary.getBoundingClientRect() : null;
         if (rect) {
@@ -557,7 +757,7 @@ function renderOscilloscope() {
 }
 requestAnimationFrame(renderOscilloscope);
 // ============================================================================
-// 4. TOUCHDESIGNER ACTIONS (b1..b4) & DUAL SLIDERS (s1, s2)
+// 7. TOUCHDESIGNER ACTIONS & DUAL SLIDERS
 // ============================================================================
 const actionButtons = document.querySelectorAll('.action-btn');
 actionButtons.forEach(btn => {
@@ -577,7 +777,6 @@ actionButtons.forEach(btn => {
     btn.addEventListener('pointerup', release);
     btn.addEventListener('pointercancel', release);
 });
-// Dual Sliders
 if (sliderS1) {
     sliderS1.addEventListener('input', () => {
         const val = Number(sliderS1.value);
@@ -607,42 +806,13 @@ function sendControl(id, value) {
         ws.send(JSON.stringify({ type: 'control', id, value }));
     }
 }
-// ============================================================================
-// 5. MASTER OPERATOR CONSOLE ACTIONS (TIER 1)
-// ============================================================================
-const sceneButtons = document.querySelectorAll('.scene-btn');
-sceneButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-        sceneButtons.forEach(b => b.classList.remove('is-active'));
-        btn.classList.add('is-active');
-        const sc = btn.getAttribute('data-scene') || 'aquarium';
-        sendHostCommand('scene_switch', { scene: sc });
-    });
-});
-const cueResetBtn = document.getElementById('cue-reset-btn');
-if (cueResetBtn) {
-    cueResetBtn.addEventListener('click', () => {
-        sendHostCommand('system_reset', {});
-    });
-}
-const cuePurgeBtn = document.getElementById('cue-purge-btn');
-if (cuePurgeBtn) {
-    cuePurgeBtn.addEventListener('click', () => {
-        sendHostCommand('slot_purge', {});
-    });
-}
-function sendHostCommand(action, extra) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-            type: 'host_command',
-            action,
-            token: 'MASTER_KEY',
-            ...extra
-        }));
+function flushInputs() {
+    if (ws && ws.readyState === WebSocket.OPEN && currentSlot !== -1) {
+        ws.send(JSON.stringify({ type: 'flush' }));
     }
 }
 // ============================================================================
-// 6. AUDIENCE HYPE INTERACTIONS (TIER 3)
+// 8. AUDIENCE SPECTATOR HYPE (ZERO EMOJIS)
 // ============================================================================
 const audienceBpmBtn = document.getElementById('audience-bpm-tap');
 const bpmNumber = document.getElementById('bpm-number');
@@ -673,13 +843,20 @@ if (audienceBpmBtn) {
 const reactionTiles = document.querySelectorAll('.reaction-tile');
 reactionTiles.forEach(tile => {
     tile.addEventListener('click', () => {
-        const rx = tile.getAttribute('data-reaction') || 'fire';
-        sendControl(`reaction_${rx}`, 1);
+        const rx = tile.getAttribute('data-reaction') || 'ignite';
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'control', id: `rx_${rx}`, value: 1 }));
+            setTimeout(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'control', id: `rx_${rx}`, value: 0 }));
+                }
+            }, 60);
+        }
         safeHaptic();
     });
 });
 // ============================================================================
-// 7. DESKTOP KEYBOARD BINDINGS (WASD, 1-4, SPACE)
+// 9. DESKTOP KEYBOARD BINDINGS (WASD, 1-4, SPACE)
 // ============================================================================
 let keyState = { w: false, a: false, s: false, d: false };
 window.addEventListener('keydown', (e) => {
@@ -789,7 +966,7 @@ function triggerVirtualButton(id, active) {
         safeHaptic();
 }
 // ============================================================================
-// 8. 60Hz THROTTLED INPUT TRANSMISSION LOOP
+// 10. 60Hz THROTTLED INPUT TRANSMISSION LOOP
 // ============================================================================
 function startInputLoop() {
     if (isLooping)

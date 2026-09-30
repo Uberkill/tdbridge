@@ -3,7 +3,7 @@ const http = require('http');
 
 async function getRoomCode() {
     return new Promise((resolve, reject) => {
-        http.get('http://127.0.0.1:8080/room', (res) => {
+        http.get('http://127.0.0.1:8080/health', (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {

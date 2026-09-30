@@ -19,7 +19,7 @@ function sleep(ms) {
 
 async function run() {
     console.log("=== VERIFYING LIVE CHOP & DAT STREAM IN TOUCHDESIGNER ===");
-    const roomInfo = await get('/room');
+    const roomInfo = await get('/health');
     const roomCode = roomInfo.room;
     console.log(`Connecting with room: ${roomCode}`);
 

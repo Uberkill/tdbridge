@@ -3,7 +3,7 @@ const http = require('http');
 
 async function getRoomCode() {
     return new Promise((resolve, reject) => {
-        http.get('http://127.0.0.1:8080/room', (res) => {
+        http.get('http://127.0.0.1:8080/health', (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
@@ -20,11 +20,13 @@ async function connectPlayer(name, room) {
     return new Promise((resolve, reject) => {
         const ws = new WebSocket('ws://127.0.0.1:8080');
         let assignedSlot = -1;
+        ws.on('open', () => {
+            ws.send(JSON.stringify({ type: 'join', role: 'performer', name: name, room: room }));
+        });
         ws.on('message', (data) => {
             const msg = JSON.parse(data.toString());
             if (msg.type === 'assigned_slot') {
                 assignedSlot = msg.slot;
-                ws.send(JSON.stringify({ type: 'join', name: name, room: room }));
                 resolve({ ws, slot: assignedSlot, name });
             }
         });

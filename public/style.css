@@ -989,8 +989,16 @@ html, body {
     transform: scale(0.95);
 }
 
-.reaction-emoji {
-    font-size: 1.5rem;
+.reaction-badge {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--status-cyan);
+}
+
+.reaction-tile:active .reaction-badge {
+    color: var(--bg-black);
 }
 
 .reaction-label {
@@ -1002,5 +1010,175 @@ html, body {
 
 .reaction-tile:active .reaction-label {
     color: #000;
+}
+
+/* Binary Selector & Gate Footer */
+.binary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.gate-footer {
+    margin-top: 20px;
+    text-align: center;
+    border-top: 1px solid var(--border-dim);
+    padding-top: 14px;
+}
+
+.text-action-link {
+    background: none;
+    border: none;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: color 0.15s ease;
+}
+
+.text-action-link:hover, .text-action-link:focus {
+    color: var(--text-white);
+    text-decoration: underline;
+}
+
+/* Modal Overlay & Card */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    background: rgba(0, 0, 0, 0.88);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 1000;
+}
+
+.modal-card {
+    max-width: 420px;
+    width: 100%;
+}
+
+.modal-actions-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.secondary-action {
+    border-color: var(--border-mid);
+    color: var(--text-dim);
+}
+
+.secondary-action:hover {
+    border-color: var(--border-white);
+    color: var(--text-white);
+}
+
+/* Dedicated FOH Master Console (#master-ui) */
+#master-ui {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-black);
+    overflow-y: auto;
+}
+
+#master-status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 2px solid var(--border-white);
+    background: var(--bg-surface);
+}
+
+.master-header-brand {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.master-workspace {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.master-top-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+@media (min-width: 768px) {
+    .master-top-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.profile-switcher-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+
+.profile-btn {
+    padding: 8px 4px;
+    background: var(--bg-black);
+    border: 1px solid var(--border-mid);
+    color: var(--text-white);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.profile-btn.is-active {
+    background: var(--text-white);
+    color: var(--bg-black);
+    border-color: var(--border-white);
+}
+
+.telemetry-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.metric-cell {
+    background: #101014;
+    border: 1px solid var(--border-dim);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.metric-label {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+}
+
+.metric-val {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--status-cyan);
 }
 

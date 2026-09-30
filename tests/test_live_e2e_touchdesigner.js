@@ -4,7 +4,7 @@ const http = require('http');
 
 function getRoomCode() {
     return new Promise((resolve, reject) => {
-        http.get('http://localhost:8080/room', (res) => {
+        http.get('http://localhost:8080/health', (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {

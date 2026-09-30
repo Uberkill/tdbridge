@@ -8,7 +8,7 @@ export interface ControlItem {
     min?: number;
     max?: number;
     step?: number;
-    emoji?: string;
+    badge?: string;
 }
 
 export interface ControllerProfile {
@@ -64,10 +64,10 @@ export const BUILTIN_PROFILES: Record<string, ControllerProfile> = {
         name: 'Audience Hype & Reactions',
         type: 'audience',
         blueprint: [
-            { type: 'reaction', id: 'b1', label: 'Fire', emoji: '🔥', color: '#ff5722' },
-            { type: 'reaction', id: 'b2', label: 'Heart', emoji: '❤️', color: '#e91e63' },
-            { type: 'reaction', id: 'b3', label: 'Party', emoji: '🎉', color: '#ffeb3b' },
-            { type: 'reaction', id: 'b4', label: 'Bolt', emoji: '⚡', color: '#00e5ff' }
+            { type: 'reaction', id: 'b1', label: 'Ignite', badge: '[01 // IGN]', color: '#ff5722' },
+            { type: 'reaction', id: 'b2', label: 'Chorus', badge: '[02 // FLUX]', color: '#e91e63' },
+            { type: 'reaction', id: 'b3', label: 'Burst', badge: '[03 // BRST]', color: '#ffeb3b' },
+            { type: 'reaction', id: 'b4', label: 'Strobe', badge: '[04 // STRB]', color: '#00e5ff' }
         ]
     }
 };
@@ -99,7 +99,7 @@ export function sanitizeBlueprint(items: any[]): ControlItem[] {
         };
 
         if (item.alias) sanitized.alias = String(item.alias).replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 16);
-        if (item.emoji) sanitized.emoji = String(item.emoji).substring(0, 4);
+        if (item.badge) sanitized.badge = String(item.badge).substring(0, 16);
 
         if (type === 'slider') {
             sanitized.min = typeof item.min === 'number' ? item.min : 0;

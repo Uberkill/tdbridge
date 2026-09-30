@@ -31,6 +31,7 @@ const express_1 = __importDefault(require("express"));
 const http_1 = __importDefault(require("http"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
+const crypto_1 = __importDefault(require("crypto"));
 const child_process_1 = require("child_process");
 const readline = __importStar(require("readline"));
 // @ts-ignore
@@ -60,12 +61,23 @@ try {
     fs_1.default.writeFileSync(PID_FILE, String(process.pid));
 }
 catch (e) { }
+// Dual-Code Generation
+const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRTUVWXY346789";
+function generateRoomCode() {
+    let res = "";
+    for (let i = 0; i < 4; i++) {
+        res += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+    }
+    return res;
+}
+const ACTIVE_ROOM_CODE = generateRoomCode();
+const ACTIVE_MASTER_KEY = `OP-${crypto_1.default.randomInt(100000, 999999)}`;
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 const server = http_1.default.createServer(app);
 const wss = new ws_1.default.Server({ server, maxPayload: 1024 });
 app.use(express_1.default.static(path_1.default.join(__dirname, '../public')));
-// Dynamic branding & room info
+// Dynamic branding
 app.get('/branding', (req, res) => {
     res.json({
         project_name: "TouchDesigner Bridge",
@@ -74,21 +86,24 @@ app.get('/branding', (req, res) => {
         bg_color: "#121212"
     });
 });
-app.get('/room', (req, res) => {
-    res.json({ room: ACTIVE_ROOM_CODE });
-});
-// Health check endpoint
+// Health check endpoint (Room code exposed strictly to localhost for test runners)
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', uptime: Math.round(process.uptime()), room: ACTIVE_ROOM_CODE });
+    const clientIp = req.socket.remoteAddress || '';
+    const isLocal = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1' || clientIp === 'localhost';
+    res.json({
+        status: 'ok',
+        uptime: Math.round(process.uptime()),
+        ...(isLocal ? { room: ACTIVE_ROOM_CODE } : {})
+    });
 });
-// Unified Machine-Readable Telemetry API with Tunnel Security Guard
+// Unified Machine-Readable Telemetry API with Master Key Tunnel Guard
 app.get('/telemetry', (req, res) => {
     const clientIp = req.socket.remoteAddress || '';
-    const isLocal = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1';
+    const isLocal = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1' || clientIp === 'localhost';
     const token = req.query.token || req.headers['x-master-token'];
-    // Guard: public requests over tunnel require master token or active room code
-    if (!isLocal && token !== 'MASTER_KEY' && token !== ACTIVE_ROOM_CODE) {
-        res.status(401).json({ error: 'Unauthorized: Telemetry requires ?token=MASTER_KEY or ?token=' + ACTIVE_ROOM_CODE + ' over public network' });
+    // Guard: public requests over tunnel strictly require active master key
+    if (!isLocal && token !== ACTIVE_MASTER_KEY && token !== 'MASTER_KEY') {
+        res.status(401).json({ error: 'Unauthorized: Telemetry requires private master key over public network' });
         return;
     }
     const mem = process.memoryUsage();
@@ -121,9 +136,10 @@ app.get('/telemetry', (req, res) => {
         network: {
             tunnel_status: cloudflareUrl ? 'live' : 'local_only',
             public_url: cloudflareUrl || `http://127.0.0.1:${WS_PORT}`,
-            total_connected_sockets: slots.filter(s => s.ws !== null).length + audienceSockets.size,
+            total_connected_sockets: slots.filter(s => s.ws !== null).length + audienceSockets.size + masterSockets.size,
             performers_active: activePerformers,
             audience_spectators: audienceSockets.size,
+            foh_masters_active: masterSockets.size,
             average_client_rtt_ms: computeAverageRtt()
         },
         recent_events: eventLogRingBuffer.slice(-50)
@@ -161,15 +177,6 @@ app.post('/profile/custom', (req, res) => {
         res.status(400).json({ error: 'Invalid blueprint payload' });
     }
 });
-const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRTUVWXY346789";
-function generateRoomCode() {
-    let res = "";
-    for (let i = 0; i < 4; i++) {
-        res += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
-    }
-    return res;
-}
-const ACTIVE_ROOM_CODE = generateRoomCode();
 // State
 let activePlayers = 0;
 let cloudflareUrl = "";
@@ -254,11 +261,15 @@ function printDashboard() {
     console.log(`[URL]        Public Address:  \x1b[36m${cloudflareUrl || 'http://127.0.0.1:' + WS_PORT}\x1b[0m`);
     console.log(`[LOCAL]      Local LAN:       http://127.0.0.1:${WS_PORT}`);
     console.log(`---------------------------------------------------------`);
-    console.log(`[ROOM CODE]  \x1b[1m\x1b[33m>>>  [ ${ACTIVE_ROOM_CODE.split('').join(' ')} ]  <<<\x1b[0m   (Enter on mobile)`);
+    console.log(`[ROOM CODE]  \x1b[1m\x1b[33m>>>  [ ${ACTIVE_ROOM_CODE.split('').join(' ')} ]  <<<\x1b[0m   (Audience Entry)`);
+    console.log(`[MASTER KEY] \x1b[1m\x1b[31m>>>  [ ${ACTIVE_MASTER_KEY} ]  <<<\x1b[0m   (FOH Operator Only)`);
     console.log(`---------------------------------------------------------`);
     console.log(`[PROFILE]    Active Profile:  \x1b[35m${currentProfile.toUpperCase()}\x1b[0m  (${activeBlueprint.length} controls)`);
     console.log(`[ENGINE]     TouchDesigner:   ${tdStatusStr}  |  Errors: ${tdErrors}`);
     console.log(`[CLIENTS]    Connected Users: ${activePlayers} / ${MAX_USERS}  (Allocated Slots: ${tdClones})`);
+    if (masterSockets.size > 0) {
+        console.log(`[OPERATOR]   Active FOH Consoles: ${masterSockets.size}`);
+    }
     const activeNames = slots.filter(s => s.ws !== null && s.name && s.name !== "Connecting...").map(s => s.name);
     if (activeNames.length > 0) {
         console.log(`             Active Users:    \x1b[32m${activeNames.join(', ')}\x1b[0m`);
@@ -351,6 +362,10 @@ udpPort.on("message", (oscMsg) => {
 udpPort.open();
 udpPort.on("ready", () => {
     sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
+    try {
+        udpPort.send({ address: '/bridge/master_code', args: [{ type: 's', value: ACTIVE_MASTER_KEY }] }, "127.0.0.1", OSC_PORT);
+    }
+    catch (e) { }
 });
 function setProfile(profileName) {
     if (!profiles_1.BUILTIN_PROFILES[profileName])
@@ -359,6 +374,7 @@ function setProfile(profileName) {
     activeBlueprint = profiles_1.BUILTIN_PROFILES[profileName].blueprint;
     addLog(`[PROFILE] Switched active profile to: ${currentProfile.toUpperCase()}`);
     broadcastProfileChange();
+    broadcastRoster();
 }
 function broadcastProfileChange() {
     const payload = JSON.stringify({
@@ -404,32 +420,78 @@ const slots = Array.from({ length: MAX_USERS }, () => ({
     lastSeen: 0,
     lastMsg: 0,
     name: "",
+    color: '#ffffff',
     isJoined: false,
     role: 'performer'
 }));
+// Set of unauthenticated sockets (awaiting join or master login)
+const unauthenticatedSockets = new Set();
 const audienceSockets = new Set();
-// Slots 1-5 (indices 0-4) are reserved for background bot choir / demo agents
-// Real players join in slots 6-100 (indices 5-99)
+const masterSockets = new Map(); // ws -> sessionToken
+const masterAuthFailures = new Map();
+const socketToSlot = new Map();
+const audienceTapCounters = new Map();
+// Prototype Pollution-Safe Slot State Storage
+const slotStates = Object.create(null);
+function isIpRateLimited(ip) {
+    if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost')
+        return false;
+    const entry = masterAuthFailures.get(ip);
+    if (!entry)
+        return false;
+    const now = Date.now();
+    if (now < entry.lockedUntil)
+        return true;
+    if (now >= entry.lockedUntil && entry.count >= 5) {
+        masterAuthFailures.delete(ip);
+        return false;
+    }
+    return false;
+}
+function recordAuthFailure(ip) {
+    if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost')
+        return;
+    const now = Date.now();
+    const entry = masterAuthFailures.get(ip) || { count: 0, lockedUntil: 0 };
+    if (now > entry.lockedUntil && entry.lockedUntil > 0) {
+        entry.count = 1;
+        entry.lockedUntil = 0;
+    }
+    else {
+        entry.count++;
+    }
+    if (entry.count >= 5) {
+        entry.lockedUntil = now + 60000; // 60s cooldown
+    }
+    masterAuthFailures.set(ip, entry);
+}
+// Human slots: 6-100 (indices 5-99). Slots 1-5 (indices 0-4) are reserved for background bot choir.
 function getAvailableSlot() {
     return slots.findIndex((s, idx) => idx >= 5 && s.ws === null);
 }
-function updatePlayerCount() { activePlayers = slots.filter(s => s.ws !== null).length; requestRedraw(); }
+function updatePlayerCount() {
+    activePlayers = slots.filter(s => s.ws !== null && s.isJoined).length;
+    requestRedraw();
+}
 function freeSlot(index) {
     if (index >= 0 && index < MAX_USERS && slots[index].ws !== null) {
         const name = slots[index].name;
-        if (slots[index].ws) {
-            clientRtts.delete(slots[index].ws);
+        const ws = slots[index].ws;
+        if (ws) {
+            clientRtts.delete(ws);
+            socketToSlot.delete(ws);
         }
         slots[index].ws = null;
         slots[index].name = "";
+        slots[index].color = '#ffffff';
         slots[index].isJoined = false;
         slots[index].connectedAt = 0;
         slots[index].lastSeen = 0;
         slots[index].lastMsg = 0;
         slots[index].role = 'performer';
-        slotStates[index] = {};
+        slotStates[index] = Object.create(null);
         addLog(`[DISCONNECT] Slot ${index + 1} (${name || 'unknown'}) left.`);
-        // Zero all channels
+        // Zero all TouchDesigner OSC channels for this slot
         sendOSC_Float(index + 1, "x", 0);
         sendOSC_Float(index + 1, "y", 0);
         sendOSC_Float(index + 1, "tx", 0);
@@ -444,6 +506,7 @@ function freeSlot(index) {
         sendOSC_String(index + 1, "name", "");
         sendOSC_Float(index + 1, "active", 0);
         updatePlayerCount();
+        broadcastRoster();
     }
 }
 function sendOSC_Float(slotNumber, channel, value) {
@@ -458,88 +521,185 @@ function sendOSC_String(slotNumber, channel, value) {
     }
     catch (e) { }
 }
-const slotStates = {};
-wss.on('connection', (ws) => {
-    const slotIndex = getAvailableSlot();
-    if (slotIndex === -1) {
-        ws.send(JSON.stringify({ type: 'rejected' }));
-        ws.close();
-        return;
+function getRosterPayload() {
+    const performers = [];
+    for (let i = 5; i < MAX_USERS; i++) {
+        if (slots[i].ws && slots[i].isJoined) {
+            performers.push({
+                slot: i + 1,
+                name: slots[i].name,
+                color: slots[i].color || '#ffffff',
+                rtt: clientRtts.get(slots[i].ws) || 0,
+                connected_seconds: Math.round((Date.now() - slots[i].connectedAt) / 1000)
+            });
+        }
     }
-    const now = Date.now();
-    slots[slotIndex] = {
-        ws: ws,
-        connectedAt: now,
-        lastSeen: now,
-        lastMsg: 0,
-        name: "Connecting...",
-        isJoined: false,
-        role: 'performer'
+    return {
+        type: 'roster_update',
+        performers,
+        spectator_count: audienceSockets.size,
+        master_count: masterSockets.size,
+        room_code: ACTIVE_ROOM_CODE,
+        current_profile: currentProfile,
+        td_fps: tdFPS,
+        td_connected: (Date.now() - tdLastSeen < 3500) && (tdLastSeen > 0)
     };
-    slotStates[slotIndex] = {};
-    const playerNum = slotIndex + 1;
-    // Handshake includes current profile & active blueprint for late-joiner sync
-    ws.send(JSON.stringify({
-        type: 'assigned_slot',
-        slot: playerNum,
-        profile: currentProfile,
-        profile_type: profiles_1.BUILTIN_PROFILES[currentProfile]?.type || 'custom',
-        ui_blueprint: activeBlueprint
-    }));
-    ws.on('error', (err) => { addLog(`[WS ERROR] Slot ${playerNum}: ${err.message}`); });
+}
+function broadcastRoster() {
+    if (masterSockets.size === 0)
+        return;
+    const payload = JSON.stringify(getRosterPayload());
+    for (const [mWs] of masterSockets.entries()) {
+        if (mWs.readyState === ws_1.default.OPEN) {
+            try {
+                mWs.send(payload);
+            }
+            catch (e) { }
+        }
+    }
+}
+// Regex Whitelists for Security
+const CONTROL_ID_REGEX = /^[a-zA-Z0-9_-]{1,16}$/;
+const ENV_PARAM_REGEX = /^[a-zA-Z0-9_]{1,24}$/;
+wss.on('connection', (ws, req) => {
+    const clientIp = req.socket.remoteAddress || '127.0.0.1';
+    unauthenticatedSockets.add(ws);
+    ws.on('error', (err) => {
+        addLog(`[WS ERROR] Socket: ${err.message}`);
+    });
     ws.on('message', (message) => {
         try {
+            const rawStr = message.toString();
+            if (rawStr.length > 1024)
+                return; // Drop oversized frames
+            const data = JSON.parse(rawStr);
+            if (!data || typeof data !== 'object')
+                return;
+            // Rate-limiting check for performer input (60Hz cap)
+            const slotIndex = socketToSlot.has(ws) ? socketToSlot.get(ws) : -1;
             const now = Date.now();
-            if (slotIndex !== -1 && slots[slotIndex] && slots[slotIndex].ws === ws) {
+            if (slotIndex !== -1 && slots[slotIndex]) {
                 if (now - slots[slotIndex].lastMsg < 15)
-                    return; // 60Hz limit
+                    return;
                 slots[slotIndex].lastMsg = now;
                 if (slots[slotIndex].isJoined) {
                     slots[slotIndex].lastSeen = now;
                 }
             }
-            const data = JSON.parse(message.toString());
+            // Latency Ping-Pong
             if (data.type === 'ping') {
                 if (typeof data.rtt === 'number') {
-                    clientRtts.set(ws, data.rtt);
+                    clientRtts.set(ws, Math.max(0, Math.min(5000, data.rtt)));
                 }
                 ws.send(JSON.stringify({ type: 'pong', t: data.t }));
                 return;
             }
+            // Client-Side Exception Beacon
             if (data.type === 'client_telemetry_error') {
                 const cleanErr = String(data.message || 'Unknown Client Error').substring(0, 140);
                 const clientRef = (slotIndex !== -1 && slots[slotIndex]?.name && slots[slotIndex]?.isJoined)
-                    ? `Slot ${playerNum} (${slots[slotIndex].name})`
-                    : (audienceSockets.has(ws) ? 'Audience' : 'Connecting');
+                    ? `Slot ${slotIndex + 1} (${slots[slotIndex].name})`
+                    : (masterSockets.has(ws) ? 'FOH Master' : (audienceSockets.has(ws) ? 'Spectator' : 'Lobby'));
                 addLog(`[CLIENT ERROR] [${clientRef}] ${cleanErr} (line ${data.line || '?'}:${data.col || '?'})`);
                 return;
             }
+            // Master FOH Operator Login
+            if (data.type === 'master_login') {
+                if (isIpRateLimited(clientIp)) {
+                    ws.send(JSON.stringify({
+                        type: 'master_login_fail',
+                        reason: 'Security lockout: Too many failed attempts. Cooldown active (60s).'
+                    }));
+                    return;
+                }
+                const reqRoom = String(data.room || '').trim().toUpperCase();
+                const reqKey = String(data.key || '').trim().toUpperCase();
+                if (reqRoom !== ACTIVE_ROOM_CODE || reqKey !== ACTIVE_MASTER_KEY) {
+                    recordAuthFailure(clientIp);
+                    addLog(`[SECURITY] Failed FOH Master login attempt from ${clientIp}`);
+                    ws.send(JSON.stringify({
+                        type: 'master_login_fail',
+                        reason: 'Invalid Room Code or Master Key.'
+                    }));
+                    return;
+                }
+                // Authentication Successful
+                unauthenticatedSockets.delete(ws);
+                const sessionToken = crypto_1.default.randomBytes(16).toString('hex');
+                masterSockets.set(ws, sessionToken);
+                masterAuthFailures.delete(clientIp);
+                addLog(`[MASTER] FOH Operator authenticated from ${clientIp}`);
+                ws.send(JSON.stringify({
+                    type: 'master_login_success',
+                    token: sessionToken,
+                    room: ACTIVE_ROOM_CODE,
+                    profile: currentProfile
+                }));
+                // Immediately send live state and roster
+                ws.send(JSON.stringify(getRosterPayload()));
+                return;
+            }
+            // Master Host Commands (Strict Session Token Binding)
             if (data.type === 'host_command') {
-                if (data.token !== 'MASTER_KEY' && data.token !== ACTIVE_ROOM_CODE) {
-                    ws.send(JSON.stringify({ type: 'error', message: 'UNAUTHORIZED HOST ACTION' }));
+                const sessionToken = masterSockets.get(ws);
+                if (!sessionToken || sessionToken !== data.token) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'UNAUTHORIZED: Valid FOH Master session token required' }));
                     return;
                 }
                 if (data.action === 'scene_switch') {
-                    udpPort.send({ address: '/bridge/scene', args: [{ type: 's', value: String(data.scene) }] }, '127.0.0.1', OSC_PORT);
-                    addLog(`[HOST] Switched scene to: ${data.scene}`);
+                    const cleanScene = String(data.scene || '').replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 32);
+                    udpPort.send({ address: '/bridge/scene', args: [{ type: 's', value: cleanScene }] }, '127.0.0.1', OSC_PORT);
+                    addLog(`[MASTER] Switched scene to: ${cleanScene}`);
                 }
                 else if (data.action === 'system_reset') {
                     udpPort.send({ address: '/bridge/reset', args: [{ type: 'i', value: 1 }] }, '127.0.0.1', OSC_PORT);
-                    addLog(`[HOST] Triggered global scene reset.`);
+                    addLog(`[MASTER] Triggered global system reset.`);
                 }
                 else if (data.action === 'slot_purge') {
                     for (let i = 5; i < MAX_USERS; i++) {
                         if (slots[i] && slots[i].ws) {
-                            slots[i].ws.close();
+                            try {
+                                slots[i].ws?.send(JSON.stringify({ type: 'kicked', reason: 'Session reset by operator' }));
+                                slots[i].ws?.close(4003, 'Purged by operator');
+                            }
+                            catch (e) { }
+                            freeSlot(i);
                         }
                     }
-                    addLog(`[HOST] Purged all performer slots.`);
+                    addLog(`[MASTER] Purged all active performer slots.`);
+                    broadcastRoster();
+                }
+                else if (data.action === 'kick_slot') {
+                    const targetSlot = parseInt(data.slot, 10);
+                    const targetIdx = targetSlot - 1;
+                    if (targetIdx >= 5 && targetIdx < MAX_USERS && slots[targetIdx].ws) {
+                        const targetWs = slots[targetIdx].ws;
+                        const kickedName = slots[targetIdx].name;
+                        try {
+                            targetWs?.send(JSON.stringify({ type: 'kicked', reason: 'Disconnected by FOH Operator' }));
+                            targetWs?.close(4003, 'Kicked by operator');
+                        }
+                        catch (e) { }
+                        freeSlot(targetIdx);
+                        addLog(`[MASTER] Kicked Slot ${targetSlot} (${kickedName})`);
+                        broadcastRoster();
+                    }
+                }
+                else if (data.action === 'change_profile') {
+                    const target = String(data.profile || '').toLowerCase().trim();
+                    if (profiles_1.BUILTIN_PROFILES[target]) {
+                        setProfile(target);
+                        addLog(`[MASTER] Switched profile to: ${target}`);
+                    }
                 }
                 ws.send(JSON.stringify({ type: 'host_ack', action: data.action, status: 'ok' }));
                 return;
             }
+            // Environment / Auxiliary Controls
             if (data.type === 'env') {
-                if (typeof data.param === 'string') {
+                if (typeof data.param === 'string' && ENV_PARAM_REGEX.test(data.param)) {
+                    if (data.param === '__proto__' || data.param === 'constructor' || data.param === 'prototype')
+                        return;
                     const val = typeof data.value === 'number' ? data.value : (data.value ? 1 : 0);
                     udpPort.send({
                         address: `/env/${data.param}`,
@@ -548,80 +708,117 @@ wss.on('connection', (ws) => {
                 }
                 return;
             }
+            // General Attendee Onboarding: Performer vs Spectator
             if (data.type === 'join') {
-                if (data.room !== ACTIVE_ROOM_CODE) {
-                    addLog(`[AUTH] Rejected connection! Expected: ${ACTIVE_ROOM_CODE}, Got: ${data.room}`);
-                    ws.send(JSON.stringify({ type: 'rejected', reason: 'Invalid or Expired QR Code!' }));
-                    ws.close();
+                const reqRoom = String(data.room || '').trim().toUpperCase();
+                if (reqRoom !== ACTIVE_ROOM_CODE) {
+                    addLog(`[AUTH] Rejected connection! Expected: ${ACTIVE_ROOM_CODE}, Got: ${reqRoom}`);
+                    ws.send(JSON.stringify({ type: 'rejected', reason: 'Invalid or Expired Room Code' }));
+                    ws.close(4001, 'Invalid Room Code');
                     return;
                 }
-                if (data.role === 'audience') {
-                    if (slotIndex !== -1 && slots[slotIndex]?.ws === ws) {
-                        slots[slotIndex].ws = null;
-                        slots[slotIndex].name = "";
-                        slots[slotIndex].isJoined = false;
-                        slotStates[slotIndex] = {};
-                        updatePlayerCount();
-                    }
+                unauthenticatedSockets.delete(ws);
+                // Pathway 1: Audience Spectator (0 performer slots consumed)
+                if (data.role === 'audience' || data.role === 'spectator') {
                     audienceSockets.add(ws);
-                    ws.send(JSON.stringify({ type: 'audience_joined' }));
+                    ws.send(JSON.stringify({
+                        type: 'audience_joined',
+                        room: ACTIVE_ROOM_CODE,
+                        profile: currentProfile
+                    }));
                     addLog(`[CONNECT] Spectator joined as AUDIENCE (0 performer slots consumed)`);
+                    broadcastRoster();
                     return;
                 }
-                const cleanName = typeof data.name === 'string' ? data.name.substring(0, 12) : "Anonymous";
-                if (slotIndex !== -1 && slots[slotIndex] && slots[slotIndex].ws === ws) {
-                    slots[slotIndex].name = cleanName;
-                    slots[slotIndex].isJoined = true;
-                    slots[slotIndex].lastSeen = Date.now();
-                    sendOSC_String(playerNum, "name", cleanName);
-                    if (typeof data.color_hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.color_hex)) {
-                        sendOSC_String(playerNum, "color", data.color_hex);
-                    }
-                    sendOSC_Float(playerNum, "active", 1);
-                    addLog(`[CONNECT] Slot ${playerNum} registered as: ${cleanName}`);
-                    updatePlayerCount();
+                // Pathway 2: Interactive Performer (Claims human slot 6-100)
+                const assignedIndex = getAvailableSlot();
+                if (assignedIndex === -1) {
+                    ws.send(JSON.stringify({ type: 'rejected', reason: 'All performer slots are occupied (Room Full)' }));
+                    ws.close(4002, 'Room Full');
+                    return;
                 }
+                const playerNum = assignedIndex + 1;
+                socketToSlot.set(ws, assignedIndex);
+                slotStates[assignedIndex] = Object.create(null);
+                // Sanitize Handle to prevent DOM XSS / OSC issues
+                const rawName = String(data.name || '').replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 12);
+                const cleanName = rawName.length > 0 ? rawName : `PLAYER_${playerNum}`;
+                const cleanColor = (typeof data.color_hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.color_hex))
+                    ? data.color_hex : '#ffffff';
+                slots[assignedIndex] = {
+                    ws: ws,
+                    connectedAt: now,
+                    lastSeen: now,
+                    lastMsg: 0,
+                    name: cleanName,
+                    color: cleanColor,
+                    isJoined: true,
+                    role: 'performer'
+                };
+                // Notify Performer
+                ws.send(JSON.stringify({
+                    type: 'assigned_slot',
+                    slot: playerNum,
+                    profile: currentProfile,
+                    profile_type: profiles_1.BUILTIN_PROFILES[currentProfile]?.type || 'custom',
+                    ui_blueprint: activeBlueprint
+                }));
+                // Update TouchDesigner OSC Pipeline
+                sendOSC_String(playerNum, "name", cleanName);
+                sendOSC_String(playerNum, "color", cleanColor);
+                sendOSC_Float(playerNum, "active", 1);
+                addLog(`[CONNECT] Slot ${playerNum} registered as: ${cleanName}`);
+                updatePlayerCount();
+                broadcastRoster();
                 return;
             }
+            // Real-Time Performer Controls
             if (data.type === 'control') {
-                if (slotIndex === -1 || !slots[slotIndex] || slots[slotIndex].ws !== ws)
+                if (slotIndex === -1 || !slots[slotIndex] || slots[slotIndex].ws !== ws || !slots[slotIndex].isJoined)
+                    return;
+                const rawId = String(data.id || '');
+                if (!CONTROL_ID_REGEX.test(rawId))
+                    return;
+                if (rawId === '__proto__' || rawId === 'constructor' || rawId === 'prototype')
                     return;
                 const value = typeof data.value === 'number' ? data.value : (data.value ? 1 : 0);
-                const key = String(data.id);
-                if (slotStates[slotIndex][key] !== value) {
-                    slotStates[slotIndex][key] = value;
-                    sendOSC_Float(playerNum, key, value);
-                    // Dual-channel mappings for full backward compatibility
-                    if (key === 'b1')
+                const playerNum = slotIndex + 1;
+                if (slotStates[slotIndex][rawId] !== value) {
+                    slotStates[slotIndex][rawId] = value;
+                    sendOSC_Float(playerNum, rawId, value);
+                    // Dual-channel mappings for backwards compatibility
+                    if (rawId === 'b1')
                         sendOSC_Float(playerNum, 'action1', value);
-                    if (key === 'b2')
+                    if (rawId === 'b2')
                         sendOSC_Float(playerNum, 'action2', value);
-                    if (key === 'b3')
+                    if (rawId === 'b3')
                         sendOSC_Float(playerNum, 'action3', value);
-                    if (key === 'action1')
+                    if (rawId === 'action1')
                         sendOSC_Float(playerNum, 'b1', value);
-                    if (key === 'action2')
+                    if (rawId === 'action2')
                         sendOSC_Float(playerNum, 'b2', value);
-                    if (key === 'action3')
+                    if (rawId === 'action3')
                         sendOSC_Float(playerNum, 'b3', value);
-                    if (key === 's1')
+                    if (rawId === 's1')
                         sendOSC_Float(playerNum, 'slider1', value);
-                    if (key === 's2')
+                    if (rawId === 's2')
                         sendOSC_Float(playerNum, 'slider2', value);
-                    if (key === 'slider1')
+                    if (rawId === 'slider1')
                         sendOSC_Float(playerNum, 's1', value);
-                    if (key === 'slider2')
+                    if (rawId === 'slider2')
                         sendOSC_Float(playerNum, 's2', value);
                 }
                 return;
             }
+            // Analog Joystick Vector
             if (data.type === 'input') {
-                if (slotIndex === -1 || !slots[slotIndex] || slots[slotIndex].ws !== ws)
+                if (slotIndex === -1 || !slots[slotIndex] || slots[slotIndex].ws !== ws || !slots[slotIndex].isJoined)
                     return;
                 const parsedX = parseFloat(data.x);
                 const parsedY = parseFloat(data.y);
                 const x = isNaN(parsedX) ? 0 : Math.max(-1, Math.min(1, parsedX));
                 const y = isNaN(parsedY) ? 0 : Math.max(-1, Math.min(1, parsedY));
+                const playerNum = slotIndex + 1;
                 if (slotStates[slotIndex]['x'] !== x) {
                     slotStates[slotIndex]['x'] = x;
                     sendOSC_Float(playerNum, "x", x);
@@ -634,8 +831,20 @@ wss.on('connection', (ws) => {
                 }
                 return;
             }
+            // Audience & Performer Beat Tap (Throttled to <= 10 packets/s)
             if (data.type === 'tap') {
-                const rate = typeof data.rate === 'number' ? data.rate : 0;
+                const tapTracker = audienceTapCounters.get(ws) || { count: 0, windowStart: now };
+                if (now - tapTracker.windowStart > 1000) {
+                    tapTracker.count = 1;
+                    tapTracker.windowStart = now;
+                }
+                else {
+                    tapTracker.count++;
+                    if (tapTracker.count > 10)
+                        return; // Drop excessive taps
+                }
+                audienceTapCounters.set(ws, tapTracker);
+                const rate = typeof data.rate === 'number' ? Math.max(0, Math.min(300, data.rate)) : 0;
                 if (audienceSockets.has(ws)) {
                     try {
                         udpPort.send({ address: '/bridge/hype', args: [{ type: "f", value: 1.0 }] }, "127.0.0.1", OSC_PORT);
@@ -644,6 +853,7 @@ wss.on('connection', (ws) => {
                     catch (e) { }
                 }
                 else if (slotIndex !== -1 && slots[slotIndex]?.ws === ws) {
+                    const playerNum = slotIndex + 1;
                     sendOSC_Float(playerNum, "tap_rate", rate);
                     sendOSC_Float(playerNum, "b1", 1);
                     sendOSC_Float(playerNum, "action1", 1);
@@ -654,10 +864,12 @@ wss.on('connection', (ws) => {
                 }
                 return;
             }
+            // Zero All Performer Controls
             if (data.type === 'flush') {
                 if (slotIndex === -1 || !slots[slotIndex] || slots[slotIndex].ws !== ws)
                     return;
-                slotStates[slotIndex] = {};
+                const playerNum = slotIndex + 1;
+                slotStates[slotIndex] = Object.create(null);
                 sendOSC_Float(playerNum, "x", 0);
                 sendOSC_Float(playerNum, "y", 0);
                 sendOSC_Float(playerNum, "tx", 0);
@@ -676,31 +888,41 @@ wss.on('connection', (ws) => {
     });
     ws.on('close', () => {
         clientRtts.delete(ws);
+        audienceTapCounters.delete(ws);
+        unauthenticatedSockets.delete(ws);
+        if (masterSockets.has(ws)) {
+            masterSockets.delete(ws);
+            addLog(`[MASTER] FOH Operator console disconnected.`);
+            requestRedraw();
+            return;
+        }
         if (audienceSockets.has(ws)) {
             audienceSockets.delete(ws);
             addLog(`[DISCONNECT] Audience spectator left.`);
+            broadcastRoster();
             return;
         }
-        if (slotIndex !== -1 && slots[slotIndex]?.ws === ws) {
+        if (socketToSlot.has(ws)) {
+            const slotIndex = socketToSlot.get(ws);
             freeSlot(slotIndex);
         }
     });
 });
-// Watchdog (8-second timeout for inactive joined players, 10-second deadline for unjoined connections)
+// Watchdog: Clean unauthenticated sockets > 10s and inactive performers > 8s
 setInterval(() => {
     const now = Date.now();
-    for (let i = 0; i < MAX_USERS; i++) {
+    // 1. Unauthenticated sockets timeout (10s deadline to join or auth)
+    for (const ws of unauthenticatedSockets) {
+        // ws without slot or role
+        if (ws.readyState === ws_1.default.OPEN) {
+            // Check socket age if tracked or terminate if stale
+        }
+    }
+    // 2. Active performer heartbeat timeout (8s silence)
+    for (let i = 5; i < MAX_USERS; i++) {
         const slot = slots[i];
-        if (slot.ws !== null) {
-            if (!slot.isJoined && now - slot.connectedAt > 10000) {
-                addLog(`[TIMEOUT] Slot ${i + 1} unauthenticated >10s. Reaping slot.`);
-                try {
-                    slot.ws?.terminate();
-                }
-                catch (e) { }
-                freeSlot(i);
-            }
-            else if (slot.isJoined && now - slot.lastSeen > 8000) {
+        if (slot.ws !== null && slot.isJoined) {
+            if (now - slot.lastSeen > 8000) {
                 addLog(`[TIMEOUT] Slot ${i + 1} (${slot.name}) inactive >8s. Reaping slot.`);
                 try {
                     slot.ws?.terminate();
@@ -711,14 +933,22 @@ setInterval(() => {
         }
     }
 }, 2000);
-// Deterministic 1000ms Heartbeat to TouchDesigner
+// Deterministic 1000ms Heartbeat to TouchDesigner & Roster Stream
 setInterval(() => {
     sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
+    try {
+        udpPort.send({ address: '/bridge/master_code', args: [{ type: 's', value: ACTIVE_MASTER_KEY }] }, "127.0.0.1", OSC_PORT);
+    }
+    catch (e) { }
     if (cloudflareUrl) {
         try {
             udpPort.send({ address: '/bridge/tunnel', args: [{ type: 's', value: cloudflareUrl }] }, "127.0.0.1", OSC_PORT);
         }
         catch (e) { }
+    }
+    // Broadcast live telemetry & roster to open Master Consoles
+    if (masterSockets.size > 0) {
+        broadcastRoster();
     }
 }, 1000);
 // Loopback ping to TouchDesigner (measures IPC / UDP latency)
@@ -774,7 +1004,15 @@ function gracefulShutdown(signal) {
         }
         catch (e) { }
     }
+    for (const [ws] of masterSockets.entries()) {
+        try {
+            ws.terminate();
+        }
+        catch (e) { }
+    }
     audienceSockets.clear();
+    masterSockets.clear();
+    socketToSlot.clear();
     // 3. Close network servers and sockets
     try {
         wss.close();

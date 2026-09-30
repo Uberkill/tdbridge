@@ -48,7 +48,7 @@ async function runVerification() {
 
   // Step 1: Check TouchDesigner Room Code Desync (AUD-03 & AUD-10)
   console.log('--- TEST 1: Room Code Synchronization ---');
-  const roomRes = await httpGet('/room');
+  const roomRes = await httpGet('/health');
   const relayRoom = roomRes.room;
   const tdRes = await tdExec(`
 room = op('/project1/TDBridge').par.Roomcode.eval()

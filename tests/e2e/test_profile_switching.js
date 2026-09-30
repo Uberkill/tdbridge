@@ -46,7 +46,7 @@ async function run() {
     console.log("=== TDBRIDGE PROFILE SWITCHING & HANDSHAKE TEST ===");
 
     // 1. Fetch Room Code
-    const roomInfo = await get('/room');
+    const roomInfo = await get('/health');
     const roomCode = roomInfo.room;
     console.log(`[1] Active Room Code: ${roomCode}`);
 
