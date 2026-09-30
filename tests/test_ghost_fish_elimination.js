@@ -12,7 +12,6 @@ async function test() {
 
   const ws = new WebSocket('ws://127.0.0.1:8080');
   await new Promise(res => ws.once('open', res));
-  await new Promise(res => ws.once('message', res));
 
   console.log(`[1] Performer joining with room ${room} as 'AuditDiver'...`);
   ws.send(JSON.stringify({

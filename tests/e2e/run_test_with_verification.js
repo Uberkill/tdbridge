@@ -27,12 +27,15 @@ async function main() {
     let joined = false;
     let assignedSlot = -1;
 
+    ws.on('open', () => {
+        ws.send(JSON.stringify({ type: 'join', role: 'performer', name: 'Sharky', room: room }));
+    });
+
     ws.on('message', (data) => {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'assigned_slot') {
             assignedSlot = msg.slot;
             console.log(`Assigned Slot: ${assignedSlot}`);
-            ws.send(JSON.stringify({ type: 'join', name: 'Sharky', room: room }));
             joined = true;
         }
     });

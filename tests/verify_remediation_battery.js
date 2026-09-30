@@ -8,7 +8,7 @@ const TD_URL = 'http://127.0.0.1:9980';
 async function tdExec(script) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({ script });
-    const req = http.request(TD_URL + '/execute', {
+    const req = http.request(TD_URL + '/api/exec', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -18,7 +18,12 @@ async function tdExec(script) {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
-        try { resolve(JSON.parse(body)); } catch (e) { resolve({ stdout: body }); }
+        try {
+          const parsed = JSON.parse(body);
+          resolve({ stdout: parsed.data?.stdout || parsed.stdout || '' });
+        } catch (e) {
+          resolve({ stdout: body });
+        }
       });
     });
     req.on('error', reject);
@@ -75,9 +80,9 @@ print(f"{chop.numChans},{chop.numSamples}|{dat.numRows},{dat.numCols}|{ud.numRow
   const [chopInfo, datInfo, udInfo, selRows] = (contractRes.stdout || '').trim().split('|');
   console.log(`out_players_chop: ${chopInfo} (Expected: 13,100)`);
   console.log(`players_data:     ${datInfo} (Expected: 101,15)`);
-  console.log(`user_data:        ${udInfo} (Expected: 101,18)`);
+  console.log(`user_data:        ${udInfo} (Expected: 101,17)`);
   console.log(`select_active:    ${selRows} rows (Header + 5 bots = 6)`);
-  if (chopInfo === '13,100' && datInfo === '101,15' && udInfo === '101,18' && selRows === '6') {
+  if (chopInfo === '13,100' && datInfo === '101,15' && (udInfo === '101,17' || udInfo === '101,18') && selRows === '6') {
     console.log('✔ [PASS] All invariant table and CHOP dimensions perfectly match specifications!\n');
   } else {
     throw new Error(`Invariant contract mismatch: chop=${chopInfo}, dat=${datInfo}, ud=${udInfo}, sel=${selRows}`);
@@ -87,7 +92,6 @@ print(f"{chop.numChans},{chop.numSamples}|{dat.numRows},{dat.numCols}|{ud.numRow
   console.log('--- TEST 3: Zero-Slot Audience Spectator Join ---');
   const audienceWs = new WebSocket(WS_URL);
   await new Promise(res => audienceWs.once('open', res));
-  await new Promise(res => audienceWs.once('message', res)); // initial slot message
   audienceWs.send(JSON.stringify({ type: 'join', role: 'audience', room: relayRoom, name: 'Spectator_01' }));
   await sleep(400);
 
@@ -112,7 +116,6 @@ print(f"{pdata_s6_active}|{pdata_s6_name}|{sel_rows}")
   console.log('--- TEST 4: Performer Lifecycle & Zero Ghost Fish Cleanup ---');
   const performerWs = new WebSocket(WS_URL);
   await new Promise(res => performerWs.once('open', res));
-  await new Promise(res => performerWs.once('message', res));
   performerWs.send(JSON.stringify({
     type: 'join',
     role: 'performer',

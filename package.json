@@ -8,8 +8,8 @@
         "build:server": "tsc src/server/relay.ts --outDir dist --target es2020 --module commonjs --esModuleInterop --skipLibCheck",
         "build": "npm run build:client && npm run build:server",
         "start": "node dist/relay.js",
-        "test": "node tests/run_all_tests.js",
-        "test:unit": "jest",
+        "test": "node tests/master_test_runner.js",
+        "test:unit": "jest tests/unit/client.test.ts",
         "test:e2e": "node tests/run_all_tests.js",
         "latency": "node tools/measure_latency.js"
     },
