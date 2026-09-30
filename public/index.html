@@ -8,20 +8,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body class="touch-none">
 
     <!-- ============================================================== -->
-    <!-- ONBOARDING LOBBY (SWISS MONOLITH)                              -->
+    <!-- ONBOARDING LOBBY (#gate)                                       -->
     <!-- ============================================================== -->
     <div id="gate">
         <div class="mono-card">
             <!-- Header Block -->
             <div class="mono-header">
                 <div class="status-pill">
-                    <span class="live-dot"></span>
-                    <span id="gate-telemetry">60.0 FPS // LINK READY</span>
+                    <span class="live-dot" id="gate-dot"></span>
+                    <span id="gate-telemetry">LINK READY // RTT: --</span>
                 </div>
                 <h1 id="brand-title">TDBRIDGE</h1>
                 <p id="brand-subtitle" class="subtitle">MULTI-USER PERFORMANCE SURFACE</p>
@@ -39,7 +39,7 @@
                 <input type="hidden" id="room-code-input">
             </div>
 
-            <!-- Player Name -->
+            <!-- User Handle -->
             <div class="section-label-row">
                 <span class="section-label">USER HANDLE</span>
                 <button type="button" id="random-name-btn" class="text-action-btn">RANDOM</button>
@@ -48,20 +48,33 @@
                 <input type="text" id="player-name" placeholder="ENTER IDENTIFIER" maxlength="12" autocomplete="off" spellcheck="false">
             </div>
 
-            <!-- Color Swatches -->
+            <!-- Role Selection -->
             <div class="section-label-row">
-                <span class="section-label">STAGE PALETTE</span>
-                <span id="selected-color-name" class="color-indicator-text">CYAN</span>
+                <span class="section-label">ACCESS ROLE</span>
+                <span id="selected-role-name" class="color-indicator-text" style="color: var(--status-cyan);">PERFORMER</span>
             </div>
-            <div class="palette-grid" id="palette-swatches">
-                <button type="button" class="swatch is-active" data-hex="#00f0ff" data-name="CYAN" style="background-color: #00f0ff;"></button>
-                <button type="button" class="swatch" data-hex="#ff007f" data-name="MAGENTA" style="background-color: #ff007f;"></button>
-                <button type="button" class="swatch" data-hex="#39ff14" data-name="LIME" style="background-color: #39ff14;"></button>
-                <button type="button" class="swatch" data-hex="#ffaa00" data-name="AMBER" style="background-color: #ffaa00;"></button>
-                <button type="button" class="swatch" data-hex="#8a2be2" data-name="PURPLE" style="background-color: #8a2be2;"></button>
-                <button type="button" class="swatch" data-hex="#ff3b30" data-name="CRIMSON" style="background-color: #ff3b30;"></button>
-                <button type="button" class="swatch" data-hex="#00e5ff" data-name="TEAL" style="background-color: #00e5ff;"></button>
-                <button type="button" class="swatch" data-hex="#ffffff" data-name="WHITE" style="background-color: #ffffff;"></button>
+            <div class="role-selector-grid">
+                <button type="button" class="role-select-btn is-active" data-role="performer">PERFORMER (SLOT)</button>
+                <button type="button" class="role-select-btn" data-role="audience">AUDIENCE (SPECTATE)</button>
+                <button type="button" class="role-select-btn" data-role="master">MASTER (OPERATOR)</button>
+            </div>
+
+            <!-- Color Swatches (For Performer) -->
+            <div id="swatch-section">
+                <div class="section-label-row">
+                    <span class="section-label">STAGE PALETTE</span>
+                    <span id="selected-color-name" class="color-indicator-text">CYAN</span>
+                </div>
+                <div class="palette-grid" id="palette-swatches">
+                    <button type="button" class="swatch is-active" data-hex="#00f0ff" data-name="CYAN" style="background-color: #00f0ff;"></button>
+                    <button type="button" class="swatch" data-hex="#ff007f" data-name="MAGENTA" style="background-color: #ff007f;"></button>
+                    <button type="button" class="swatch" data-hex="#39ff14" data-name="LIME" style="background-color: #39ff14;"></button>
+                    <button type="button" class="swatch" data-hex="#ffaa00" data-name="AMBER" style="background-color: #ffaa00;"></button>
+                    <button type="button" class="swatch" data-hex="#8a2be2" data-name="PURPLE" style="background-color: #8a2be2;"></button>
+                    <button type="button" class="swatch" data-hex="#ff3b30" data-name="CRIMSON" style="background-color: #ff3b30;"></button>
+                    <button type="button" class="swatch" data-hex="#00e5ff" data-name="TEAL" style="background-color: #00e5ff;"></button>
+                    <button type="button" class="swatch" data-hex="#ffffff" data-name="WHITE" style="background-color: #ffffff;"></button>
+                </div>
             </div>
 
             <!-- Connect Action Button -->
@@ -83,84 +96,213 @@
                 <span id="slot-indicator">SLOT #--</span>
             </div>
             <div class="hud-center">
-                <span id="engine-status" class="hud-tag">60.0 FPS // LINKED</span>
+                <span id="rtt-status" class="hud-tag green">RTT: --ms // LINKED</span>
             </div>
             <div class="hud-right">
                 <button id="exit-btn" class="mono-btn micro-btn">DISCONNECT</button>
             </div>
         </header>
+
+        <!-- Role Tier Tabs (Inside Active Session) -->
+        <nav class="active-role-nav">
+            <button class="role-nav-tab is-active" data-view="performer">01 // PERFORMER</button>
+            <button class="role-nav-tab" data-view="master">02 // MASTER CONSOLE</button>
+            <button class="role-nav-tab" data-view="audience">03 // AUDIENCE HYPE</button>
+        </nav>
         
         <!-- Main Interactive Workspace -->
         <main id="control-area">
-            <!-- Left / Top: Precision Analog Joystick Reticle -->
-            <section id="joystick-section" class="surface-pane">
-                <div class="pane-header">
-                    <span>ANALOG VECTOR [-1.0, +1.0]</span>
-                    <span id="vector-readout" class="mono-val">X: +0.00 | Y: +0.00</span>
-                </div>
-                
-                <div id="joystick-zone">
-                    <div id="joystick-boundary">
-                        <!-- Crosshairs -->
-                        <div class="crosshair-x"></div>
-                        <div class="crosshair-y"></div>
-                        <div class="reticle-ring inner"></div>
-                        
-                        <!-- Physical Puck -->
-                        <div id="joystick-puck">
-                            <div id="puck-center-dot" style="background-color: #00f0ff;"></div>
+            
+            <!-- ========================================================== -->
+            <!-- TIER 2: PERFORMER SURFACE (TOUCHDESIGNER CONTROLS)          -->
+            <!-- ========================================================== -->
+            <div id="view-performer" class="role-view-container">
+                <!-- Left: Analog Joystick Reticle & 60Hz Oscilloscope Canvas -->
+                <section id="joystick-section" class="surface-pane">
+                    <div class="pane-header">
+                        <span>ANALOG RETICLE [X/Y]</span>
+                        <span id="vector-readout" class="mono-val">X: +0.00 | Y: +0.00</span>
+                    </div>
+                    
+                    <div id="joystick-zone">
+                        <div id="joystick-boundary">
+                            <div class="crosshair-x"></div>
+                            <div class="crosshair-y"></div>
+                            <div class="reticle-ring inner"></div>
+                            <canvas id="vector-canvas"></canvas>
+                            
+                            <!-- Physical Puck -->
+                            <div id="joystick-puck">
+                                <div id="puck-center-dot" style="background-color: #00f0ff;"></div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="pane-footer">
-                    <span class="hud-note">MULTI-TOUCH CAPTURE // 60Hz</span>
-                    <span id="keyboard-hint" class="hud-note desktop-only">DESKTOP: [W][A][S][D]</span>
-                </div>
-            </section>
-            
-            <!-- Right / Bottom: Action Grid & Macro Faders -->
-            <section id="actions-section" class="surface-pane">
-                <div class="pane-header">
-                    <span>ACTION COMMANDS</span>
-                    <span id="ml-state-badge" class="hud-tag cyan">STATE: READY</span>
-                </div>
-
-                <!-- 4 Action Trigger Blocks -->
-                <div id="dynamic-controls" class="actions-grid">
-                    <button type="button" class="action-btn mono-btn" id="btn-b1" data-id="b1">
-                        <span class="btn-primary-title">ACTION 1</span>
-                        <span class="btn-sub-label">PRIMARY (1 / A)</span>
-                    </button>
-                    <button type="button" class="action-btn mono-btn" id="btn-b2" data-id="b2">
-                        <span class="btn-primary-title">ACTION 2</span>
-                        <span class="btn-sub-label">ALT (2 / B)</span>
-                    </button>
-                    <button type="button" class="action-btn mono-btn" id="btn-b3" data-id="b3">
-                        <span class="btn-primary-title">SPECIAL</span>
-                        <span class="btn-sub-label">TRIGGER (3 / X)</span>
-                    </button>
-                    <button type="button" class="action-btn mono-btn" id="btn-b4" data-id="b4">
-                        <span class="btn-primary-title">FLASH</span>
-                        <span class="btn-sub-label">RESET (4 / Y)</span>
-                    </button>
-                </div>
-
-                <!-- Macro Modulation Slider -->
-                <div class="slider-module">
-                    <div class="slider-header">
-                        <span class="slider-title">MACRO MODULATION (S1)</span>
-                        <span id="slider-readout" class="slider-val">50%</span>
+                    <div class="pane-footer">
+                        <span class="hud-note">60Hz HARDWARE TRACER</span>
+                        <span id="keyboard-hint" class="hud-note desktop-only">DESKTOP: [W][A][S][D]</span>
                     </div>
-                    <div class="slider-track-wrap">
-                        <input type="range" id="macro-slider" min="0" max="100" value="50" class="mono-range">
+                </section>
+                
+                <!-- Right: TouchDesigner Actions & Dual Sliders -->
+                <section id="actions-section" class="surface-pane">
+                    <div class="pane-header">
+                        <span>TOUCHDESIGNER ACTIONS</span>
+                        <span id="performer-status-badge" class="hud-tag cyan">ACTIVE LINK</span>
+                    </div>
+
+                    <!-- 4 Action Trigger Blocks (Aligned with TD Blueprints) -->
+                    <div id="dynamic-controls" class="actions-grid">
+                        <button type="button" class="action-btn mono-btn" id="btn-b1" data-id="b1">
+                            <span class="btn-primary-title">ROTATE 360°</span>
+                            <span class="btn-sub-label">TRIGGER (1 / A)</span>
+                        </button>
+                        <button type="button" class="action-btn mono-btn" id="btn-b2" data-id="b2">
+                            <span class="btn-primary-title">COLOR SWAP</span>
+                            <span class="btn-sub-label">PALETTE (2 / B)</span>
+                        </button>
+                        <button type="button" class="action-btn mono-btn" id="btn-b3" data-id="b3">
+                            <span class="btn-primary-title">FEED FISH</span>
+                            <span class="btn-sub-label">PELLET (3 / X)</span>
+                        </button>
+                        <button type="button" class="action-btn mono-btn" id="btn-b4" data-id="b4">
+                            <span class="btn-primary-title">SPECIAL</span>
+                            <span class="btn-sub-label">SCARE (4 / Y)</span>
+                        </button>
+                    </div>
+
+                    <!-- Dual Sliders: s1 (Speed) and s2 (Size) -->
+                    <div class="sliders-stack">
+                        <!-- s1: Swim Speed -->
+                        <div class="slider-module">
+                            <div class="slider-header">
+                                <span class="slider-title">SWIM SPEED (s1)</span>
+                                <span id="slider-s1-readout" class="slider-val">50%</span>
+                            </div>
+                            <div class="slider-track-wrap">
+                                <input type="range" id="slider-s1" min="0" max="100" value="50" class="mono-range">
+                            </div>
+                        </div>
+
+                        <!-- s2: Scale / Size -->
+                        <div class="slider-module">
+                            <div class="slider-header">
+                                <span class="slider-title">SCALE / SIZE (s2)</span>
+                                <span id="slider-s2-readout" class="slider-val">55%</span>
+                            </div>
+                            <div class="slider-track-wrap">
+                                <input type="range" id="slider-s2" min="35" max="95" value="55" class="mono-range">
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ========================================================== -->
+            <!-- TIER 1: MASTER OPERATOR CONSOLE                            -->
+            <!-- ========================================================== -->
+            <div id="view-master" class="role-view-container master-dashboard" style="display: none;">
+                <div class="master-header-row">
+                    <span class="master-title">FOH MASTER BROADCAST CONTROLLER</span>
+                    <span class="hud-tag green" id="master-auth-badge">HOST: READY</span>
+                </div>
+
+                <div class="master-cards-grid">
+                    <!-- Scene Switcher -->
+                    <div class="master-block">
+                        <div class="master-block-header">GLOBAL SHOW SCENE</div>
+                        <div class="scene-switcher-buttons">
+                            <button type="button" class="scene-btn is-active" data-scene="aquarium">AQUARIUM</button>
+                            <button type="button" class="scene-btn" data-scene="canvas">CANVAS</button>
+                            <button type="button" class="scene-btn" data-scene="kinetic">KINETIC</button>
+                        </div>
+                        <p class="master-note">Transmits `/bridge/scene` OSC packet live to TouchDesigner.</p>
+                    </div>
+
+                    <!-- Emergency Cues -->
+                    <div class="master-block">
+                        <div class="master-block-header">EMERGENCY STAGE CUES</div>
+                        <div class="cues-row">
+                            <button type="button" class="mono-btn cue-danger-btn" id="cue-reset-btn">RESET ENGINE</button>
+                            <button type="button" class="mono-btn cue-danger-btn" id="cue-purge-btn">PURGE SLOTS</button>
+                        </div>
+                        <p class="master-note">Clears lingering entities and restores default simulation state.</p>
                     </div>
                 </div>
-            </section>
+
+                <!-- Active Performer Slots Roster -->
+                <div class="master-block roster-block">
+                    <div class="master-block-header flex-between">
+                        <span>CONNECTED PERFORMER ROSTER</span>
+                        <span id="roster-count" class="roster-pill">LIVE SLOTS</span>
+                    </div>
+                    <div class="roster-table-wrap">
+                        <table class="mono-table">
+                          <thead>
+                            <tr>
+                              <th>SLOT</th>
+                              <th>NAME</th>
+                              <th>COLOR</th>
+                              <th>RTT</th>
+                              <th>ACTION</th>
+                            </tr>
+                          </thead>
+                          <tbody id="roster-tbody">
+                            <tr>
+                              <td>#06</td>
+                              <td>ACTIVE_PLAYER</td>
+                              <td><span class="slot-dot-inline" style="background:#00f0ff;"></span> CYAN</td>
+                              <td>14ms</td>
+                              <td><button type="button" class="kick-text-btn" data-kick="6">DISCONNECT</button></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================== -->
+            <!-- TIER 3: AUDIENCE SPECTATOR HYPE SURFACE                    -->
+            <!-- ========================================================== -->
+            <div id="view-audience" class="role-view-container audience-dashboard" style="display: none;">
+                <div class="audience-inner">
+                    <div class="audience-header">
+                        <h2>AUDIENCE HYPE & BEAT PULSE</h2>
+                        <p class="audience-sub">Zero slot consumption // Direct crowd energy stream</p>
+                    </div>
+
+                    <!-- BPM Tap Pulser -->
+                    <button type="button" class="bpm-pulser-btn" id="audience-bpm-tap">
+                        <span class="bpm-number" id="bpm-number">128</span>
+                        <span class="bpm-label">TAP TO BEAT</span>
+                    </button>
+
+                    <!-- Crowd Reaction Matrix -->
+                    <div class="reactions-matrix">
+                        <button type="button" class="reaction-tile" data-reaction="fire">
+                            <span class="reaction-emoji">🔥</span>
+                            <span class="reaction-label">IGNITE</span>
+                        </button>
+                        <button type="button" class="reaction-tile" data-reaction="bolt">
+                            <span class="reaction-emoji">⚡</span>
+                            <span class="reaction-label">STROBE</span>
+                        </button>
+                        <button type="button" class="reaction-tile" data-reaction="heart">
+                            <span class="reaction-emoji">❤️</span>
+                            <span class="reaction-label">CHORUS</span>
+                        </button>
+                        <button type="button" class="reaction-tile" data-reaction="party">
+                            <span class="reaction-emoji">🎉</span>
+                            <span class="reaction-label">BURST</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
     <!-- Client Script -->
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=8"></script>
 </body>
 </html>
