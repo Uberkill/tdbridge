@@ -379,6 +379,9 @@ wss.on('connection', (ws: WebSocket) => {
                 const cleanName = typeof data.name === 'string' ? data.name.substring(0, 12) : "Anonymous";
                 slots[slotIndex].name = cleanName;
                 sendOSC_String(playerNum, "name", cleanName);
+                if (typeof data.color_hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.color_hex)) {
+                    sendOSC_String(playerNum, "color", data.color_hex);
+                }
                 sendOSC_Float(playerNum, "active", 1);
                 addLog(`[CONNECT] Slot ${playerNum} registered as: ${cleanName}`);
                 updatePlayerCount();

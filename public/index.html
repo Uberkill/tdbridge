@@ -2,46 +2,165 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TD Bridge</title>
-    <!-- Google Fonts: Roboto for Material Design -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=5">
-    <!-- NippleJS for mobile virtual joystick -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TDBridge // Swiss Graphic Monolith</title>
+    <!-- Google Fonts: Space Grotesk (Display) & JetBrains Mono (Telemetry) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=6">
 </head>
-<body>
-    <!-- Material Design Onboarding Gate -->
+<body class="touch-none">
+
+    <!-- ============================================================== -->
+    <!-- ONBOARDING LOBBY (SWISS MONOLITH)                              -->
+    <!-- ============================================================== -->
     <div id="gate">
-        <div class="mat-card mat-elevation-z2">
-            <h1>TD Bridge</h1>
-            <p id="error-msg" style="color: var(--error); margin-bottom: 10px;"></p>
-            <div class="input-group">
-                <input type="text" id="player-name" placeholder="Your Name" maxlength="12" autocomplete="off" spellcheck="false">
+        <div class="mono-card">
+            <!-- Header Block -->
+            <div class="mono-header">
+                <div class="status-pill">
+                    <span class="live-dot"></span>
+                    <span id="gate-telemetry">60.0 FPS // LINK READY</span>
+                </div>
+                <h1 id="brand-title">TDBRIDGE</h1>
+                <p id="brand-subtitle" class="subtitle">MULTI-USER PERFORMANCE SURFACE</p>
             </div>
-            <div class="input-group">
-                <input type="text" id="room-code-input" placeholder="Room Code (e.g. 8XF2)" maxlength="4" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="text-transform: uppercase;">
+
+            <div id="error-msg" class="error-banner" style="display: none;"></div>
+
+            <!-- Room Code Segmented Entry -->
+            <div class="section-label">ROOM IDENTIFIER</div>
+            <div class="room-code-wrapper" id="room-code-group">
+                <input type="text" class="code-box" id="code-0" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                <input type="text" class="code-box" id="code-1" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                <input type="text" class="code-box" id="code-2" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                <input type="text" class="code-box" id="code-3" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                <input type="hidden" id="room-code-input">
             </div>
-            <button id="join-btn" class="mat-btn mat-primary">Connect</button>
+
+            <!-- Player Name -->
+            <div class="section-label-row">
+                <span class="section-label">USER HANDLE</span>
+                <button type="button" id="random-name-btn" class="text-action-btn">RANDOM</button>
+            </div>
+            <div class="input-block">
+                <input type="text" id="player-name" placeholder="ENTER IDENTIFIER" maxlength="12" autocomplete="off" spellcheck="false">
+            </div>
+
+            <!-- Color Swatches -->
+            <div class="section-label-row">
+                <span class="section-label">STAGE PALETTE</span>
+                <span id="selected-color-name" class="color-indicator-text">CYAN</span>
+            </div>
+            <div class="palette-grid" id="palette-swatches">
+                <button type="button" class="swatch is-active" data-hex="#00f0ff" data-name="CYAN" style="background-color: #00f0ff;"></button>
+                <button type="button" class="swatch" data-hex="#ff007f" data-name="MAGENTA" style="background-color: #ff007f;"></button>
+                <button type="button" class="swatch" data-hex="#39ff14" data-name="LIME" style="background-color: #39ff14;"></button>
+                <button type="button" class="swatch" data-hex="#ffaa00" data-name="AMBER" style="background-color: #ffaa00;"></button>
+                <button type="button" class="swatch" data-hex="#8a2be2" data-name="PURPLE" style="background-color: #8a2be2;"></button>
+                <button type="button" class="swatch" data-hex="#ff3b30" data-name="CRIMSON" style="background-color: #ff3b30;"></button>
+                <button type="button" class="swatch" data-hex="#00e5ff" data-name="TEAL" style="background-color: #00e5ff;"></button>
+                <button type="button" class="swatch" data-hex="#ffffff" data-name="WHITE" style="background-color: #ffffff;"></button>
+            </div>
+
+            <!-- Connect Action Button -->
+            <button id="join-btn" class="mono-btn primary-action">
+                <span>CONNECT TO SURFACE</span>
+                <span class="arrow-glyph">&#8594;</span>
+            </button>
         </div>
     </div>
 
-    <!-- The Actual Controller UI -->
+    <!-- ============================================================== -->
+    <!-- ACTIVE CONTROLLER UI (OMNI-DEVICE SURFACE)                     -->
+    <!-- ============================================================== -->
     <div id="ui" style="display: none;">
-        <div id="status-bar" class="mat-elevation-z2">
-            <span id="slot-indicator">Connecting...</span>
-            <button id="exit-btn" class="mat-btn mat-secondary">Leave</button>
-        </div>
+        <!-- Top HUD Bar -->
+        <header id="status-bar">
+            <div class="hud-left">
+                <span id="slot-dot" class="slot-color-dot" style="background-color: #00f0ff;"></span>
+                <span id="slot-indicator">SLOT #--</span>
+            </div>
+            <div class="hud-center">
+                <span id="engine-status" class="hud-tag">60.0 FPS // LINKED</span>
+            </div>
+            <div class="hud-right">
+                <button id="exit-btn" class="mono-btn micro-btn">DISCONNECT</button>
+            </div>
+        </header>
         
-        <div id="control-area">
-            <!-- Joystick occupies upper/left space -->
-            <div id="joystick-zone"></div>
+        <!-- Main Interactive Workspace -->
+        <main id="control-area">
+            <!-- Left / Top: Precision Analog Joystick Reticle -->
+            <section id="joystick-section" class="surface-pane">
+                <div class="pane-header">
+                    <span>ANALOG VECTOR [-1.0, +1.0]</span>
+                    <span id="vector-readout" class="mono-val">X: +0.00 | Y: +0.00</span>
+                </div>
+                
+                <div id="joystick-zone">
+                    <div id="joystick-boundary">
+                        <!-- Crosshairs -->
+                        <div class="crosshair-x"></div>
+                        <div class="crosshair-y"></div>
+                        <div class="reticle-ring inner"></div>
+                        
+                        <!-- Physical Puck -->
+                        <div id="joystick-puck">
+                            <div id="puck-center-dot" style="background-color: #00f0ff;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pane-footer">
+                    <span class="hud-note">MULTI-TOUCH CAPTURE // 60Hz</span>
+                    <span id="keyboard-hint" class="hud-note desktop-only">DESKTOP: [W][A][S][D]</span>
+                </div>
+            </section>
             
-            <!-- Action buttons with descriptions -->
-            <div id="dynamic-controls" class="controls-grid"></div>
-        </div>
+            <!-- Right / Bottom: Action Grid & Macro Faders -->
+            <section id="actions-section" class="surface-pane">
+                <div class="pane-header">
+                    <span>ACTION COMMANDS</span>
+                    <span id="ml-state-badge" class="hud-tag cyan">STATE: READY</span>
+                </div>
+
+                <!-- 4 Action Trigger Blocks -->
+                <div id="dynamic-controls" class="actions-grid">
+                    <button type="button" class="action-btn mono-btn" id="btn-b1" data-id="b1">
+                        <span class="btn-primary-title">ACTION 1</span>
+                        <span class="btn-sub-label">PRIMARY (1 / A)</span>
+                    </button>
+                    <button type="button" class="action-btn mono-btn" id="btn-b2" data-id="b2">
+                        <span class="btn-primary-title">ACTION 2</span>
+                        <span class="btn-sub-label">ALT (2 / B)</span>
+                    </button>
+                    <button type="button" class="action-btn mono-btn" id="btn-b3" data-id="b3">
+                        <span class="btn-primary-title">SPECIAL</span>
+                        <span class="btn-sub-label">TRIGGER (3 / X)</span>
+                    </button>
+                    <button type="button" class="action-btn mono-btn" id="btn-b4" data-id="b4">
+                        <span class="btn-primary-title">FLASH</span>
+                        <span class="btn-sub-label">RESET (4 / Y)</span>
+                    </button>
+                </div>
+
+                <!-- Macro Modulation Slider -->
+                <div class="slider-module">
+                    <div class="slider-header">
+                        <span class="slider-title">MACRO MODULATION (S1)</span>
+                        <span id="slider-readout" class="slider-val">50%</span>
+                    </div>
+                    <div class="slider-track-wrap">
+                        <input type="range" id="macro-slider" min="0" max="100" value="50" class="mono-range">
+                    </div>
+                </div>
+            </section>
+        </main>
     </div>
 
-    <script src="app.js?v=5"></script>
+    <!-- Client Script -->
+    <script src="app.js?v=6"></script>
 </body>
 </html>

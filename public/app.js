@@ -1,31 +1,123 @@
+// ============================================================================
+// TDBRIDGE // SWISS GRAPHIC MONOLITH CLIENT APPLICATION
+// Multi-touch, omni-device, 60Hz throttled performance controller.
+// ============================================================================
 let ws = null;
 let currentSlot = -1;
-let currentProfile = "gamepad";
 let outX = 0;
 let outY = 0;
-let lastSentX = -1;
-let lastSentY = -1;
+let lastSentX = -999;
+let lastSentY = -999;
 let isLooping = false;
-let joystick = null;
-let playerName = "Anonymous";
-let isRejected = false;
+let playerName = "ANONYMOUS";
+let selectedColorHex = "#00f0ff";
+let selectedColorName = "CYAN";
 let reconnectTimer = null;
+// DOM Elements
 const gate = document.getElementById('gate');
 const ui = document.getElementById('ui');
 const joinBtn = document.getElementById('join-btn');
 const exitBtn = document.getElementById('exit-btn');
 const slotIndicator = document.getElementById('slot-indicator');
-const controlArea = document.getElementById('control-area');
-const nameInput = document.getElementById('player-name');
-const roomInput = document.getElementById('room-code-input');
+const slotDot = document.getElementById('slot-dot');
+const engineStatus = document.getElementById('engine-status');
 const errorMsg = document.getElementById('error-msg');
-// Auto-fill room code from URL if present
+const nameInput = document.getElementById('player-name');
+const randomNameBtn = document.getElementById('random-name-btn');
+const vectorReadout = document.getElementById('vector-readout');
+const macroSlider = document.getElementById('macro-slider');
+const sliderReadout = document.getElementById('slider-readout');
+// Joystick Elements
+const joystickBoundary = document.getElementById('joystick-boundary');
+const joystickPuck = document.getElementById('joystick-puck');
+const puckCenterDot = document.getElementById('puck-center-dot');
+// Segmented Room Code Elements
+const codeBoxes = [
+    document.getElementById('code-0'),
+    document.getElementById('code-1'),
+    document.getElementById('code-2'),
+    document.getElementById('code-3'),
+];
+const roomCodeHidden = document.getElementById('room-code-input');
+// ============================================================================
+// 1. INITIALIZATION & URL HANDLING
+// ============================================================================
 const urlParams = new URLSearchParams(window.location.search);
-const currentRoomCode = urlParams.get('room') || "";
-if (currentRoomCode && roomInput) {
-    roomInput.value = currentRoomCode;
+const initialRoom = (urlParams.get('room') || "").trim().toUpperCase();
+if (initialRoom.length === 4) {
+    for (let i = 0; i < 4; i++) {
+        if (codeBoxes[i])
+            codeBoxes[i].value = initialRoom[i];
+    }
+    if (roomCodeHidden)
+        roomCodeHidden.value = initialRoom;
 }
-// Fetch Dynamic Branding on Page Load
+// Segmented Code Navigation & Clipboard Paste
+codeBoxes.forEach((box, idx) => {
+    if (!box)
+        return;
+    box.addEventListener('input', (e) => {
+        const val = box.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        box.value = val.slice(0, 1);
+        updateRoomCodeValue();
+        if (box.value && idx < 3) {
+            codeBoxes[idx + 1].focus();
+        }
+    });
+    box.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !box.value && idx > 0) {
+            codeBoxes[idx - 1].focus();
+        }
+    });
+    box.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const pasted = (e.clipboardData?.getData('text') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (pasted.length >= 4) {
+            for (let i = 0; i < 4; i++) {
+                if (codeBoxes[i])
+                    codeBoxes[i].value = pasted[i];
+            }
+            updateRoomCodeValue();
+            codeBoxes[3].focus();
+        }
+    });
+});
+function updateRoomCodeValue() {
+    const code = codeBoxes.map(b => b?.value || '').join('').toUpperCase();
+    if (roomCodeHidden)
+        roomCodeHidden.value = code;
+    return code;
+}
+// Random Handle Generator
+const HANDLE_PREFIXES = ['NODE', 'VECTOR', 'AERO', 'PULSE', 'SIGNAL', 'VERTEX', 'MODEM', 'NEXUS'];
+function generateRandomHandle() {
+    const pre = HANDLE_PREFIXES[Math.floor(Math.random() * HANDLE_PREFIXES.length)];
+    const num = Math.floor(Math.random() * 90 + 10);
+    nameInput.value = `${pre}_${num}`;
+}
+if (randomNameBtn) {
+    randomNameBtn.addEventListener('click', generateRandomHandle);
+}
+// Color Swatch Selection
+const swatches = document.querySelectorAll('.swatch');
+const selectedColorLabel = document.getElementById('selected-color-name');
+swatches.forEach(s => {
+    s.addEventListener('click', () => {
+        swatches.forEach(other => other.classList.remove('is-active'));
+        s.classList.add('is-active');
+        selectedColorHex = s.getAttribute('data-hex') || '#00f0ff';
+        selectedColorName = s.getAttribute('data-name') || 'CYAN';
+        if (selectedColorLabel) {
+            selectedColorLabel.innerText = selectedColorName;
+            selectedColorLabel.style.color = selectedColorHex;
+        }
+        if (slotDot)
+            slotDot.style.backgroundColor = selectedColorHex;
+        if (puckCenterDot)
+            puckCenterDot.style.backgroundColor = selectedColorHex;
+    });
+});
+// Dynamic Branding / Telemetry Ping
 const hostname = window.location.hostname;
 const protocol = window.location.protocol;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '' || hostname.startsWith('192.168') || hostname.startsWith('10.');
@@ -33,33 +125,42 @@ const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
 const wsUrlBase = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `${wsProtocol}//${window.location.host}`;
 const httpUrlBase = isLocal ? `http://${hostname || '127.0.0.1'}:8080` : `${protocol}//${window.location.host}`;
 fetch(`${httpUrlBase}/branding`)
-    .then(res => res.json())
+    .then(r => r.json())
     .then(b => {
-    if (b.project_name)
-        document.querySelector('h1').innerText = b.project_name;
-    if (b.subtitle)
-        document.querySelector('#gate p').innerText = b.subtitle;
-    if (b.primary_color)
-        joinBtn.style.backgroundColor = b.primary_color;
-    if (b.bg_color)
-        document.body.style.backgroundColor = b.bg_color;
+    const brandTitle = document.getElementById('brand-title');
+    const brandSub = document.getElementById('brand-subtitle');
+    if (brandTitle && b.project_name)
+        brandTitle.innerText = b.project_name.toUpperCase();
+    if (brandSub && b.subtitle)
+        brandSub.innerText = b.subtitle.toUpperCase();
 })
-    .catch(e => console.log("Branding fetch failed or offline"));
-// --- Joining and Exiting ---
+    .catch(() => { });
+// ============================================================================
+// 2. CONNECTION LIFECYCLE
+// ============================================================================
 joinBtn.addEventListener('click', () => {
-    let rawName = nameInput.value.trim();
-    if (rawName === "") {
-        rawName = "Player_" + Math.floor(Math.random() * 9000 + 1000);
+    let raw = nameInput.value.trim().toUpperCase();
+    if (!raw) {
+        generateRandomHandle();
+        raw = nameInput.value;
     }
-    playerName = rawName.substring(0, 12);
-    errorMsg.innerText = "";
-    isRejected = false;
+    playerName = raw.substring(0, 12);
+    const room = updateRoomCodeValue();
+    if (room.length !== 4) {
+        showError("PLEASE ENTER 4-CHARACTER ROOM CODE");
+        return;
+    }
+    hideError();
+    // Safe WakeLock
     if ('wakeLock' in navigator) {
-        navigator.wakeLock.request('screen').catch(console.error);
+        try {
+            navigator.wakeLock.request('screen').catch(() => { });
+        }
+        catch (e) { }
     }
     gate.style.display = 'none';
     ui.style.display = 'flex';
-    connectWS();
+    connectWS(room);
 });
 exitBtn.addEventListener('click', () => {
     flushInputs();
@@ -71,460 +172,297 @@ exitBtn.addEventListener('click', () => {
     }
     ui.style.display = 'none';
     gate.style.display = 'flex';
-    teardownActiveProfile();
     currentSlot = -1;
 });
-function flushInputs() {
-    outX = 0;
-    outY = 0;
-    lastSentX = -1;
-    lastSentY = -1;
-    if (ws && ws.readyState === WebSocket.OPEN && currentSlot !== -1) {
-        ws.send(JSON.stringify({ type: 'flush' }));
+function showError(msg) {
+    if (errorMsg) {
+        errorMsg.innerText = `[!] ${msg}`;
+        errorMsg.style.display = 'block';
     }
 }
-function teardownActiveProfile() {
-    if (joystick) {
-        joystick.destroy();
-        joystick = null;
-    }
-    if (controlArea) {
-        controlArea.innerHTML = "";
-    }
+function hideError() {
+    if (errorMsg)
+        errorMsg.style.display = 'none';
 }
-// --- Dynamic Profile Switching ---
-function renderProfile(profileType, blueprint) {
-    flushInputs();
-    currentProfile = profileType;
-    if (!controlArea)
-        return;
-    controlArea.classList.add('profile-fading');
-    setTimeout(() => {
-        teardownActiveProfile();
-        switch (profileType) {
-            case 'touchpad':
-                mountTouchpad(blueprint);
-                break;
-            case 'faderbank':
-                mountFaderbank(blueprint);
-                break;
-            case 'audience':
-                mountAudience(blueprint);
-                break;
-            case 'gamepad':
-            default:
-                mountGamepad(blueprint);
-                break;
-        }
-        controlArea.classList.remove('profile-fading');
-    }, 70);
-}
-// 1. GAMEPAD MOUNT
-function mountGamepad(blueprint) {
-    const joyZone = document.createElement('div');
-    joyZone.id = 'joystick-zone';
-    controlArea.appendChild(joyZone);
-    const dynamicControls = document.createElement('div');
-    dynamicControls.id = 'dynamic-controls';
-    dynamicControls.className = 'controls-grid';
-    controlArea.appendChild(dynamicControls);
-    initJoystick(joyZone);
-    buildDynamicControls(dynamicControls, blueprint);
-}
-function initJoystick(zoneEl) {
-    if (joystick)
-        joystick.destroy();
-    const joySize = Math.min(window.innerWidth / 2, 340);
-    joystick = nipplejs.create({
-        zone: zoneEl,
-        mode: 'dynamic',
-        color: '#ffffff',
-        size: joySize
-    });
-    joystick.on('move', (evt, data) => {
-        if (!data || !data.angle)
-            return;
-        const radius = data.instance.options.size / 2;
-        outX = data.distance * Math.cos(data.angle.radian) / radius;
-        outY = data.distance * Math.sin(data.angle.radian) / radius;
-    });
-    joystick.on('end', () => {
-        outX = 0;
-        outY = 0;
-    });
-}
-// 2. TOUCHPAD / CANVAS MOUNT
-function mountTouchpad(blueprint) {
-    const container = document.createElement('div');
-    container.className = 'touchpad-container';
-    const topBar = document.createElement('div');
-    topBar.className = 'touchpad-top-bar';
-    const badge = document.createElement('div');
-    badge.className = 'touchpad-badge';
-    badge.innerText = 'X: 0.00 | Y: 0.00';
-    topBar.appendChild(badge);
-    // Top action buttons
-    blueprint.filter(c => c.type === 'button').forEach(c => {
-        const btn = document.createElement('button');
-        btn.className = 'mat-btn mat-secondary';
-        btn.innerText = c.label;
-        btn.style.borderColor = c.color || '#4285f4';
-        btn.style.color = '#fff';
-        btn.addEventListener('touchstart', (e) => { e.preventDefault(); sendControl(c.id, 1); });
-        btn.addEventListener('touchend', (e) => { e.preventDefault(); sendControl(c.id, 0); });
-        btn.addEventListener('mousedown', () => sendControl(c.id, 1));
-        btn.addEventListener('mouseup', () => sendControl(c.id, 0));
-        topBar.appendChild(btn);
-    });
-    container.appendChild(topBar);
-    const canvas = document.createElement('canvas');
-    canvas.className = 'touchpad-canvas';
-    container.appendChild(canvas);
-    controlArea.appendChild(container);
-    const ctx = canvas.getContext('2d');
-    let isTouching = false;
-    let touchX = 0;
-    let touchY = 0;
-    function resizeCanvas() {
-        canvas.width = canvas.clientWidth;
-        canvas.height = canvas.clientHeight;
-        drawTouchpad();
-    }
-    window.addEventListener('resize', resizeCanvas);
-    setTimeout(resizeCanvas, 50);
-    function drawTouchpad() {
-        if (!ctx)
-            return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Center crosshairs
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(canvas.width / 2, 0);
-        ctx.lineTo(canvas.width / 2, canvas.height);
-        ctx.moveTo(0, canvas.height / 2);
-        ctx.lineTo(canvas.width, canvas.height / 2);
-        ctx.stroke();
-        if (isTouching) {
-            // Glowing touch indicator
-            const grad = ctx.createRadialGradient(touchX, touchY, 5, touchX, touchY, 40);
-            grad.addColorStop(0, 'rgba(66, 133, 244, 0.9)');
-            grad.addColorStop(1, 'rgba(66, 133, 244, 0)');
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(touchX, touchY, 40, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(touchX, touchY, 8, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
-    function handlePointer(e) {
-        const rect = canvas.getBoundingClientRect();
-        touchX = e.clientX - rect.left;
-        touchY = e.clientY - rect.top;
-        // Normalize to [-1.0, 1.0] (center is 0, 0, Y positive is up)
-        const normX = ((touchX / canvas.width) * 2 - 1);
-        const normY = -((touchY / canvas.height) * 2 - 1);
-        outX = Math.max(-1, Math.min(1, normX));
-        outY = Math.max(-1, Math.min(1, normY));
-        badge.innerText = `X: ${outX >= 0 ? '+' : ''}${outX.toFixed(2)} | Y: ${outY >= 0 ? '+' : ''}${outY.toFixed(2)}`;
-        drawTouchpad();
-    }
-    canvas.addEventListener('pointerdown', (e) => {
-        canvas.setPointerCapture(e.pointerId);
-        isTouching = true;
-        sendControl('b1', 1);
-        handlePointer(e);
-    });
-    canvas.addEventListener('pointermove', (e) => {
-        if (isTouching)
-            handlePointer(e);
-    });
-    const pointerUp = (e) => {
-        if (isTouching) {
-            isTouching = false;
-            sendControl('b1', 0);
-            outX = 0;
-            outY = 0;
-            badge.innerText = 'X: 0.00 | Y: 0.00';
-            drawTouchpad();
-        }
-    };
-    canvas.addEventListener('pointerup', pointerUp);
-    canvas.addEventListener('pointercancel', pointerUp);
-}
-// 3. FADER BANK MOUNT
-function mountFaderbank(blueprint) {
-    const container = document.createElement('div');
-    container.className = 'faderbank-container';
-    const fadersRow = document.createElement('div');
-    fadersRow.className = 'faders-row';
-    const sliders = blueprint.filter(c => c.type === 'slider');
-    sliders.forEach((c) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'v-fader-wrapper';
-        const badge = document.createElement('span');
-        badge.className = 'fader-badge';
-        let curVal = c.default_val !== undefined ? c.default_val : 0.5;
-        badge.innerText = Math.round(curVal * 100) + '%';
-        const track = document.createElement('div');
-        track.className = 'fader-track';
-        const fill = document.createElement('div');
-        fill.className = 'fader-fill';
-        fill.style.backgroundColor = c.color || '#4285f4';
-        fill.style.height = `${curVal * 100}%`;
-        track.appendChild(fill);
-        const label = document.createElement('span');
-        label.className = 'fader-label';
-        label.innerText = c.label;
-        // Touch scrubbing for vertical fader
-        function updateFader(e) {
-            const rect = track.getBoundingClientRect();
-            const relY = rect.bottom - e.clientY;
-            let norm = relY / rect.height;
-            norm = Math.max(0, Math.min(1, norm));
-            curVal = norm;
-            fill.style.height = `${norm * 100}%`;
-            badge.innerText = Math.round(norm * 100) + '%';
-            sendControl(c.id, norm);
-        }
-        track.addEventListener('pointerdown', (e) => {
-            track.setPointerCapture(e.pointerId);
-            updateFader(e);
-        });
-        track.addEventListener('pointermove', (e) => {
-            if (e.buttons > 0)
-                updateFader(e);
-        });
-        wrapper.appendChild(badge);
-        wrapper.appendChild(track);
-        wrapper.appendChild(label);
-        fadersRow.appendChild(wrapper);
-    });
-    container.appendChild(fadersRow);
-    // Bottom Flash Pads
-    const padsRow = document.createElement('div');
-    padsRow.className = 'fader-pads-row';
-    const buttons = blueprint.filter(c => c.type === 'button');
-    buttons.forEach((c) => {
-        const pad = document.createElement('button');
-        pad.className = 'fader-flash-pad';
-        pad.innerText = c.label;
-        pad.style.backgroundColor = c.color || '#4285f4';
-        const press = (e) => { e.preventDefault(); sendControl(c.id, 1); };
-        const release = (e) => { e.preventDefault(); sendControl(c.id, 0); };
-        pad.addEventListener('pointerdown', press);
-        pad.addEventListener('pointerup', release);
-        pad.addEventListener('pointercancel', release);
-        padsRow.appendChild(pad);
-    });
-    container.appendChild(padsRow);
-    controlArea.appendChild(container);
-}
-// 4. AUDIENCE HYPE MOUNT
-function mountAudience(blueprint) {
-    const container = document.createElement('div');
-    container.className = 'audience-container';
-    // Tap BPM Stats
-    const stats = document.createElement('div');
-    stats.className = 'hype-stats';
-    const bpmDisplay = document.createElement('h2');
-    bpmDisplay.className = 'hype-bpm';
-    bpmDisplay.innerText = '0 BPM';
-    const subLabel = document.createElement('div');
-    subLabel.className = 'hype-label';
-    subLabel.innerText = 'Tap Rhythm / Energy';
-    stats.appendChild(bpmDisplay);
-    stats.appendChild(subLabel);
-    container.appendChild(stats);
-    // Big Center Tap Button
-    let tapTimes = [];
-    let totalTaps = 0;
-    const tapBtn = document.createElement('div');
-    tapBtn.className = 'hype-tap-btn';
-    tapBtn.innerHTML = `
-        <span class="hype-btn-text">PULSE</span>
-        <span class="hype-taps-count">0 taps</span>
-    `;
-    const countDisplay = tapBtn.querySelector('.hype-taps-count');
-    tapBtn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        totalTaps++;
-        countDisplay.innerText = `${totalTaps} taps`;
-        const now = Date.now();
-        tapTimes.push(now);
-        // Keep last 6 taps
-        if (tapTimes.length > 6)
-            tapTimes.shift();
-        let bpm = 0;
-        if (tapTimes.length > 1) {
-            const intervals = [];
-            for (let i = 1; i < tapTimes.length; i++) {
-                intervals.push(tapTimes[i] - tapTimes[i - 1]);
-            }
-            const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-            if (avgInterval > 0) {
-                bpm = Math.round(60000 / avgInterval);
-            }
-        }
-        bpmDisplay.innerText = `${bpm} BPM`;
-        if (ws && ws.readyState === WebSocket.OPEN && currentSlot !== -1) {
-            ws.send(JSON.stringify({ type: 'tap', rate: bpm }));
-        }
-    });
-    container.appendChild(tapBtn);
-    // Reactions Bar
-    const reactions = blueprint.filter(c => c.type === 'reaction' || c.emoji);
-    if (reactions.length > 0) {
-        const reactBar = document.createElement('div');
-        reactBar.className = 'reactions-bar';
-        reactions.forEach((c) => {
-            const rBtn = document.createElement('button');
-            rBtn.className = 'reaction-btn';
-            rBtn.innerText = c.emoji || c.label;
-            rBtn.addEventListener('pointerdown', (e) => {
-                e.preventDefault();
-                sendControl(c.id, 1);
-                setTimeout(() => sendControl(c.id, 0), 100);
-            });
-            reactBar.appendChild(rBtn);
-        });
-        container.appendChild(reactBar);
-    }
-    controlArea.appendChild(container);
-}
-// Generic control sender
-function sendControl(id, value) {
-    if (ws && ws.readyState === WebSocket.OPEN && currentSlot !== -1) {
-        ws.send(JSON.stringify({ type: 'control', id, value }));
-    }
-}
-// Common Dynamic Blueprint Builder
-function buildDynamicControls(parentEl, blueprint) {
-    parentEl.innerHTML = "";
-    blueprint.forEach(control => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'dynamic-control-wrapper';
-        if (control.type === 'button') {
-            const btn = document.createElement('button');
-            btn.className = 'action-btn mat-elevation-z1';
-            btn.style.backgroundColor = control.color || '#4285f4';
-            btn.innerHTML = `<span class="btn-title">${control.label}</span>`;
-            const triggerPress = (e) => { e.preventDefault(); btn.classList.add('is-active'); sendControl(control.id, 1); };
-            const triggerRelease = (e) => { e.preventDefault(); btn.classList.remove('is-active'); sendControl(control.id, 0); };
-            btn.addEventListener('mousedown', triggerPress);
-            btn.addEventListener('touchstart', triggerPress, { passive: false });
-            btn.addEventListener('mouseup', triggerRelease);
-            btn.addEventListener('mouseleave', triggerRelease);
-            btn.addEventListener('touchend', triggerRelease);
-            btn.addEventListener('touchcancel', triggerRelease);
-            btn.addEventListener('contextmenu', e => e.preventDefault());
-            wrapper.appendChild(btn);
-        }
-        else if (control.type === 'slider') {
-            const label = document.createElement('label');
-            label.innerText = control.label;
-            label.style.color = '#fff';
-            label.style.display = 'block';
-            label.style.marginBottom = '5px';
-            label.style.fontSize = '1.2rem';
-            label.style.fontWeight = 'bold';
-            label.style.textTransform = 'uppercase';
-            const slider = document.createElement('input');
-            slider.type = 'range';
-            slider.min = control.min.toString();
-            slider.max = control.max.toString();
-            slider.step = control.step.toString();
-            slider.value = control.default_val.toString();
-            slider.style.width = '100%';
-            slider.addEventListener('input', (e) => {
-                sendControl(control.id, parseFloat(e.target.value));
-            });
-            wrapper.appendChild(label);
-            wrapper.appendChild(slider);
-        }
-        parentEl.appendChild(wrapper);
-    });
-}
-// --- WebSocket Handshake & Handlers ---
-function connectWS() {
-    if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN))
-        return;
-    if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = null;
-    }
-    const host = wsUrlBase;
-    ws = new WebSocket(host);
+function connectWS(roomCode) {
+    slotIndicator.innerText = "CONNECTING...";
+    ws = new WebSocket(wsUrlBase);
     ws.onopen = () => {
-        slotIndicator.innerText = "Connected! Waiting for slot...";
-        const finalRoomCode = roomInput.value.trim().toUpperCase();
-        ws?.send(JSON.stringify({ type: 'join', name: playerName, room: finalRoomCode }));
-        if (!isLooping) {
-            isLooping = true;
-            requestAnimationFrame(networkLoop);
-        }
+        slotIndicator.innerText = "LINKING...";
+        ws?.send(JSON.stringify({
+            type: 'join',
+            name: playerName,
+            room: roomCode,
+            color_hex: selectedColorHex,
+            color_name: selectedColorName
+        }));
     };
-    ws.onmessage = (msg) => {
+    ws.onmessage = (event) => {
         try {
-            const data = JSON.parse(msg.data);
+            const data = JSON.parse(event.data);
             if (data.type === 'assigned_slot') {
                 currentSlot = data.slot;
-                slotIndicator.innerText = `${playerName} (Slot ${currentSlot})`;
-                slotIndicator.style.color = '#34a853';
-                renderProfile(data.profile_type || data.profile || 'gamepad', data.ui_blueprint || []);
+                slotIndicator.innerText = `SLOT #${String(currentSlot).padStart(2, '0')}`;
+                if (engineStatus)
+                    engineStatus.innerText = "60.0 FPS // LIVE LINK";
+                startInputLoop();
             }
-            if (data.type === 'profile_change') {
-                renderProfile(data.profile_type || data.profile, data.ui_blueprint || []);
-            }
-            if (data.type === 'rejected') {
-                isRejected = true;
-                errorMsg.innerText = data.reason || "Installation Full!";
+            else if (data.type === 'error') {
+                showError(data.message || 'CONNECTION ERROR');
                 exitBtn.click();
             }
         }
         catch (e) { }
     };
     ws.onclose = () => {
-        isLooping = false;
-        if (ui.style.display === 'flex' && !isRejected) {
-            slotIndicator.innerText = "Disconnected. Reconnecting...";
-            slotIndicator.style.color = '#ea4335';
-            currentSlot = -1;
-            reconnectTimer = setTimeout(connectWS, 2000 + Math.random() * 1000);
+        if (ui.style.display === 'flex') {
+            slotIndicator.innerText = "DISCONNECTED";
+            if (engineStatus)
+                engineStatus.innerText = "OFFLINE // RETRYING";
+            reconnectTimer = setTimeout(() => connectWS(roomCode), 2000);
         }
     };
 }
-// 60Hz Network Loop
-let lastFrameTime = 0;
-function networkLoop(timestamp) {
-    if (!ws || ws.readyState !== WebSocket.OPEN)
-        return;
-    if (timestamp - lastFrameTime > 33) {
-        if (currentSlot !== -1) {
-            if (outX !== lastSentX || outY !== lastSentY) {
-                ws.send(JSON.stringify({ type: 'input', x: outX, y: outY }));
-                lastSentX = outX;
-                lastSentY = outY;
-            }
-        }
-        lastFrameTime = timestamp;
+function flushInputs() {
+    outX = 0;
+    outY = 0;
+    lastSentX = -999;
+    lastSentY = -999;
+    if (ws && ws.readyState === WebSocket.OPEN && currentSlot !== -1) {
+        ws.send(JSON.stringify({ type: 'flush' }));
     }
-    requestAnimationFrame(networkLoop);
 }
-setInterval(() => {
-    if (ws && ws.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify({ type: 'ping' }));
-}, 4000);
-// Auto-zero inputs when phone sleeps or tab blurs
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-        flushInputs();
+// ============================================================================
+// 3. ANALOG JOYSTICK WITH POINTER CAPTURE & MULTI-TOUCH
+// ============================================================================
+let isDraggingJoy = false;
+let joyPointerId = -1;
+let joyBounds = null;
+function updateJoyBounds() {
+    if (joystickBoundary) {
+        joyBounds = joystickBoundary.getBoundingClientRect();
     }
-    else if (document.visibilityState === 'visible' && ui.style.display === 'flex') {
-        if (!ws || ws.readyState !== WebSocket.OPEN)
-            connectWS();
+}
+window.addEventListener('resize', updateJoyBounds);
+window.addEventListener('orientationchange', updateJoyBounds);
+if (joystickBoundary) {
+    joystickBoundary.addEventListener('pointerdown', (e) => {
+        isDraggingJoy = true;
+        joyPointerId = e.pointerId;
+        try {
+            joystickBoundary.setPointerCapture(e.pointerId);
+        }
+        catch (err) { }
+        updateJoyBounds();
+        handleJoyMove(e);
+    });
+    joystickBoundary.addEventListener('pointermove', (e) => {
+        if (!isDraggingJoy || e.pointerId !== joyPointerId)
+            return;
+        handleJoyMove(e);
+    });
+    const resetJoy = (e) => {
+        if (e.pointerId !== joyPointerId && joyPointerId !== -1)
+            return;
+        isDraggingJoy = false;
+        joyPointerId = -1;
+        outX = 0;
+        outY = 0;
+        if (joystickPuck) {
+            joystickPuck.style.transform = `translate(0px, 0px)`;
+        }
+        if (vectorReadout) {
+            vectorReadout.innerText = `X: +0.00 | Y: +0.00`;
+        }
+    };
+    joystickBoundary.addEventListener('pointerup', resetJoy);
+    joystickBoundary.addEventListener('pointercancel', resetJoy);
+    joystickBoundary.addEventListener('lostpointercapture', resetJoy);
+}
+function handleJoyMove(e) {
+    if (!joyBounds)
+        updateJoyBounds();
+    if (!joyBounds)
+        return;
+    const centerX = joyBounds.left + joyBounds.width / 2;
+    const centerY = joyBounds.top + joyBounds.height / 2;
+    let dx = e.clientX - centerX;
+    let dy = e.clientY - centerY;
+    const maxRadius = Math.max(10, joyBounds.width / 2 - 30);
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxRadius) {
+        dx = (dx / dist) * maxRadius;
+        dy = (dy / dist) * maxRadius;
     }
+    if (joystickPuck) {
+        joystickPuck.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+    outX = Math.max(-1, Math.min(1, dx / maxRadius));
+    outY = Math.max(-1, Math.min(1, -dy / maxRadius)); // Inverted Y for standard Cartesian
+    if (vectorReadout) {
+        const sx = (outX >= 0 ? '+' : '') + outX.toFixed(2);
+        const sy = (outY >= 0 ? '+' : '') + outY.toFixed(2);
+        vectorReadout.innerText = `X: ${sx} | Y: ${sy}`;
+    }
+}
+// ============================================================================
+// 4. ACTION TRIGGERS & MACRO SLIDER
+// ============================================================================
+const actionButtons = document.querySelectorAll('.action-btn');
+actionButtons.forEach(btn => {
+    const id = btn.getAttribute('data-id') || 'b1';
+    const press = (e) => {
+        e.preventDefault();
+        btn.classList.add('is-active');
+        sendControl(id, 1);
+        safeHaptic();
+    };
+    const release = (e) => {
+        e.preventDefault();
+        btn.classList.remove('is-active');
+        sendControl(id, 0);
+    };
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
 });
+if (macroSlider) {
+    macroSlider.addEventListener('input', () => {
+        const val = Number(macroSlider.value);
+        if (sliderReadout)
+            sliderReadout.innerText = `${val}%`;
+        sendControl('s1', val / 100);
+    });
+}
+function safeHaptic() {
+    if ('vibrate' in navigator) {
+        try {
+            navigator.vibrate(12);
+        }
+        catch (e) { }
+    }
+}
+function sendControl(id, value) {
+    if (ws && ws.readyState === WebSocket.OPEN && currentSlot !== -1) {
+        ws.send(JSON.stringify({ type: 'control', id, value }));
+    }
+}
+// ============================================================================
+// 5. DESKTOP KEYBOARD BINDINGS (WASD, 1-4, SPACE)
+// ============================================================================
+let keyState = { w: false, a: false, s: false, d: false };
+window.addEventListener('keydown', (e) => {
+    // Only capture when controller UI is visible and focus is not on an input field
+    if (ui.style.display !== 'flex')
+        return;
+    const tag = (document.activeElement?.tagName || '').toUpperCase();
+    if (tag === 'INPUT' || tag === 'TEXTAREA')
+        return;
+    if (e.code === 'KeyW' || e.code === 'ArrowUp')
+        keyState.w = true;
+    if (e.code === 'KeyS' || e.code === 'ArrowDown')
+        keyState.s = true;
+    if (e.code === 'KeyA' || e.code === 'ArrowLeft')
+        keyState.a = true;
+    if (e.code === 'KeyD' || e.code === 'ArrowRight')
+        keyState.d = true;
+    if (e.code === 'Digit1')
+        triggerVirtualButton('b1', true);
+    if (e.code === 'Digit2')
+        triggerVirtualButton('b2', true);
+    if (e.code === 'Digit3')
+        triggerVirtualButton('b3', true);
+    if (e.code === 'Digit4' || e.code === 'Space')
+        triggerVirtualButton('b4', true);
+    updateKeyboardVector();
+});
+window.addEventListener('keyup', (e) => {
+    if (ui.style.display !== 'flex')
+        return;
+    const tag = (document.activeElement?.tagName || '').toUpperCase();
+    if (tag === 'INPUT' || tag === 'TEXTAREA')
+        return;
+    if (e.code === 'KeyW' || e.code === 'ArrowUp')
+        keyState.w = false;
+    if (e.code === 'KeyS' || e.code === 'ArrowDown')
+        keyState.s = false;
+    if (e.code === 'KeyA' || e.code === 'ArrowLeft')
+        keyState.a = false;
+    if (e.code === 'KeyD' || e.code === 'ArrowRight')
+        keyState.d = false;
+    if (e.code === 'Digit1')
+        triggerVirtualButton('b1', false);
+    if (e.code === 'Digit2')
+        triggerVirtualButton('b2', false);
+    if (e.code === 'Digit3')
+        triggerVirtualButton('b3', false);
+    if (e.code === 'Digit4' || e.code === 'Space')
+        triggerVirtualButton('b4', false);
+    updateKeyboardVector();
+});
+function updateKeyboardVector() {
+    if (isDraggingJoy)
+        return; // Touch joystick takes priority
+    let kx = 0;
+    let ky = 0;
+    if (keyState.d)
+        kx += 1.0;
+    if (keyState.a)
+        kx -= 1.0;
+    if (keyState.w)
+        ky += 1.0;
+    if (keyState.s)
+        ky -= 1.0;
+    const mag = Math.hypot(kx, ky);
+    if (mag > 1.0) {
+        kx /= mag;
+        ky /= mag;
+    }
+    outX = kx;
+    outY = ky;
+    if (joystickPuck) {
+        const radius = 60;
+        joystickPuck.style.transform = `translate(${kx * radius}px, ${-ky * radius}px)`;
+    }
+    if (vectorReadout) {
+        const sx = (outX >= 0 ? '+' : '') + outX.toFixed(2);
+        const sy = (outY >= 0 ? '+' : '') + outY.toFixed(2);
+        vectorReadout.innerText = `X: ${sx} | Y: ${sy}`;
+    }
+}
+function triggerVirtualButton(id, active) {
+    const el = document.getElementById(`btn-${id}`);
+    if (el) {
+        if (active)
+            el.classList.add('is-active');
+        else
+            el.classList.remove('is-active');
+    }
+    sendControl(id, active ? 1 : 0);
+    if (active)
+        safeHaptic();
+}
+// ============================================================================
+// 6. 60Hz THROTTLED INPUT TRANSMISSION LOOP
+// ============================================================================
+function startInputLoop() {
+    if (isLooping)
+        return;
+    isLooping = true;
+    setInterval(() => {
+        if (!ws || ws.readyState !== WebSocket.OPEN || currentSlot === -1)
+            return;
+        // Only send if values changed significantly (> 0.005) or returning to 0
+        const deltaX = Math.abs(outX - lastSentX);
+        const deltaY = Math.abs(outY - lastSentY);
+        if (deltaX > 0.005 || deltaY > 0.005 || (outX === 0 && lastSentX !== 0) || (outY === 0 && lastSentY !== 0)) {
+            ws.send(JSON.stringify({
+                type: 'input',
+                x: Number(outX.toFixed(4)),
+                y: Number(outY.toFixed(4))
+            }));
+            lastSentX = outX;
+            lastSentY = outY;
+        }
+    }, 16); // ~60Hz
+}
