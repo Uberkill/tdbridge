@@ -10,7 +10,7 @@ Zero-install mobile controller pipeline for TouchDesigner. Connects mobile brows
 Phone Browser ──(WebSocket / HTTPS)──► Node.js Relay (Port 8080)
                                             │
                                             ├── OSC UDP (Port 9000) ──► TouchDesigner
-                                            │                            • TDBridge.tox / testing_final.toe
+                                            │                            • TDBridge.tox / TDBridge.toe
                                             │
 TouchDesigner ── OSC UDP (Port 9001) ───────┘
   • Telemetry (/td/fps, /td/clones)
@@ -38,7 +38,7 @@ The launcher will:
 4. Print the active Room Code, local LAN URL, public tunnel URL, and ASCII QR code.
 
 ### 3. Open TouchDesigner
-Open **`testing_final.toe`** (or **`TDBridge.toe`**).
+Open **`TDBridge.toe`**.
 The network connects to the relay over local ports 9000/9001 automatically.
 
 ---
@@ -47,8 +47,7 @@ The network connects to the relay over local ports 9000/9001 automatically.
 
 ```text
 TDBridge/
-├── testing_final.toe         # Main TouchDesigner project (Aquarium Showcase)
-├── TDBridge.toe              # Direct mirror of testing_final.toe
+├── TDBridge.toe              # Main unified TouchDesigner project (Aquarium Showcase & Particle Canvas)
 ├── TDBridge.tox              # Standalone core component (MediaPipe-style drop-in)
 ├── Start_System.bat          # Production launcher
 ├── package.json              # Dependencies and build/test scripts

@@ -14,7 +14,7 @@ Before modifying code, confirm that the local environment is healthy:
    ```
    *(Or run `npm start` in your shell).*
 2. **Open the TouchDesigner Project**:
-   Open [`testing_final.toe`](testing_final.toe) in TouchDesigner. Confirm the status parameter displays `Online - 60.0 FPS`.
+   Open [`TDBridge.toe`](TDBridge.toe) in TouchDesigner. Confirm the status parameter displays `Online - 60.0 FPS`.
 3. **Execute the Verification Suite**:
    Open a separate terminal and run:
    ```bash
@@ -50,7 +50,7 @@ If a controller profile does not use a specific channel (e.g. `s3` in Gamepad mo
 - **Controller Profiles**: [`src/server/profiles.ts`](src/server/profiles.ts) (Archetype blueprints).
 - **Client Frontend**: [`src/client/app.ts`](src/client/app.ts) and [`public/app.js`](public/app.js).
 - **Standalone Core Component**: [`TDBridge.tox`](TDBridge.tox) and [`core/TDBridge.tox`](core/TDBridge.tox).
-- **Aquarium Showcase**: [`testing_final.toe`](testing_final.toe) and [`examples/01_Aquarium/Aquarium_Demo.toe`](examples/01_Aquarium/Aquarium_Demo.toe).
+- **Aquarium Showcase**: [`TDBridge.toe`](TDBridge.toe) (and archived [`Backup/legacy_testing_final/testing_final.toe`](Backup/legacy_testing_final/testing_final.toe) / [`examples/01_Aquarium/Aquarium_Demo.toe`](examples/01_Aquarium/Aquarium_Demo.toe)).
 - **Pre-MediaPipe Fallback Backup**: [`Backup/MASTER_PRE_MEDIAPIPE_AQUARIUM_SAVE/`](Backup/MASTER_PRE_MEDIAPIPE_AQUARIUM_SAVE/).
 
 ---
