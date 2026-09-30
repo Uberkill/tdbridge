@@ -99,6 +99,25 @@ function stopRelay() {
 function ws_connect(url = RELAY_URL) {
   return new Promise((res, rej) => {
     const ws = new WebSocket(url);
+    ws._msgQueue = [];
+    ws.on('message', (data) => {
+      try {
+        const parsed = JSON.parse(data.toString());
+        if (ws._msgHandler) {
+          const handler = ws._msgHandler;
+          ws._msgHandler = null;
+          handler(parsed);
+        } else {
+          ws._msgQueue.push(parsed);
+        }
+      } catch (e) {
+        if (ws._msgHandler) {
+          const handler = ws._msgHandler;
+          ws._msgHandler = null;
+          handler({ raw: data.toString() });
+        }
+      }
+    });
     ws.once('open', () => res(ws));
     ws.once('error', rej);
     setTimeout(() => rej(new Error('WS connect timeout')), 3000);
@@ -107,8 +126,11 @@ function ws_connect(url = RELAY_URL) {
 
 function ws_message(ws, timeout = 2000) {
   return new Promise((res, rej) => {
-    const t = setTimeout(() => rej(new Error('No message received')), timeout);
-    ws.once('message', (data) => { clearTimeout(t); res(JSON.parse(data.toString())); });
+    if (ws._msgQueue && ws._msgQueue.length > 0) {
+      return res(ws._msgQueue.shift());
+    }
+    const t = setTimeout(() => { ws._msgHandler = null; rej(new Error('No message received')); }, timeout);
+    ws._msgHandler = (msg) => { clearTimeout(t); res(msg); };
   });
 }
 

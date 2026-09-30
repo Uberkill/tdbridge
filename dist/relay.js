@@ -44,7 +44,7 @@ const MAX_USERS = 100;
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 const server = http_1.default.createServer(app);
-const wss = new ws_1.default.Server({ server, maxPayload: 2048 });
+const wss = new ws_1.default.Server({ server, maxPayload: 1024 });
 app.use(express_1.default.static(path_1.default.join(__dirname, '../public')));
 // Dynamic branding & room info
 app.get('/branding', (req, res) => {
@@ -111,6 +111,10 @@ let tdClones = 0;
 let currentProfile = 'gamepad';
 let activeBlueprint = profiles_1.BUILTIN_PROFILES.gamepad.blueprint;
 const LOG_FILE_PATH = path_1.default.join(__dirname, '../scratch_debug/error_log.txt');
+try {
+    fs_1.default.mkdirSync(path_1.default.dirname(LOG_FILE_PATH), { recursive: true });
+}
+catch (e) { }
 const MAX_LOGS = 10;
 const logs = [];
 function addLog(msg) {
@@ -297,7 +301,16 @@ process.on('SIGTERM', () => { if (cf)
     cf.kill(); process.exit(0); });
 process.on('exit', () => { if (cf)
     cf.kill(); });
-const slots = Array.from({ length: MAX_USERS }, () => ({ ws: null, lastSeen: 0, lastMsg: 0, name: "" }));
+const slots = Array.from({ length: MAX_USERS }, () => ({
+    ws: null,
+    connectedAt: 0,
+    lastSeen: 0,
+    lastMsg: 0,
+    name: "",
+    isJoined: false,
+    role: 'performer'
+}));
+const audienceSockets = new Set();
 // Slots 1-5 (indices 0-4) are reserved for background bot choir / demo agents
 // Real players join in slots 6-100 (indices 5-99)
 function getAvailableSlot() {
@@ -309,6 +322,11 @@ function freeSlot(index) {
         const name = slots[index].name;
         slots[index].ws = null;
         slots[index].name = "";
+        slots[index].isJoined = false;
+        slots[index].connectedAt = 0;
+        slots[index].lastSeen = 0;
+        slots[index].lastMsg = 0;
+        slots[index].role = 'performer';
         slotStates[index] = {};
         addLog(`[DISCONNECT] Slot ${index + 1} (${name || 'unknown'}) left.`);
         // Zero all channels
@@ -348,7 +366,16 @@ wss.on('connection', (ws) => {
         ws.close();
         return;
     }
-    slots[slotIndex] = { ws: ws, lastSeen: Date.now(), lastMsg: 0, name: "Connecting..." };
+    const now = Date.now();
+    slots[slotIndex] = {
+        ws: ws,
+        connectedAt: now,
+        lastSeen: now,
+        lastMsg: 0,
+        name: "Connecting...",
+        isJoined: false,
+        role: 'performer'
+    };
     slotStates[slotIndex] = {};
     const playerNum = slotIndex + 1;
     // Handshake includes current profile & active blueprint for late-joiner sync
@@ -363,11 +390,13 @@ wss.on('connection', (ws) => {
     ws.on('message', (message) => {
         try {
             const now = Date.now();
-            if (slots[slotIndex] && slots[slotIndex].ws !== null) {
+            if (slotIndex !== -1 && slots[slotIndex] && slots[slotIndex].ws === ws) {
                 if (now - slots[slotIndex].lastMsg < 15)
                     return; // 60Hz limit
                 slots[slotIndex].lastMsg = now;
-                slots[slotIndex].lastSeen = now;
+                if (slots[slotIndex].isJoined) {
+                    slots[slotIndex].lastSeen = now;
+                }
             }
             const data = JSON.parse(message.toString());
             if (data.type === 'ping') {
@@ -415,18 +444,37 @@ wss.on('connection', (ws) => {
                     ws.close();
                     return;
                 }
-                const cleanName = typeof data.name === 'string' ? data.name.substring(0, 12) : "Anonymous";
-                slots[slotIndex].name = cleanName;
-                sendOSC_String(playerNum, "name", cleanName);
-                if (typeof data.color_hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.color_hex)) {
-                    sendOSC_String(playerNum, "color", data.color_hex);
+                if (data.role === 'audience') {
+                    if (slotIndex !== -1 && slots[slotIndex]?.ws === ws) {
+                        slots[slotIndex].ws = null;
+                        slots[slotIndex].name = "";
+                        slots[slotIndex].isJoined = false;
+                        slotStates[slotIndex] = {};
+                        updatePlayerCount();
+                    }
+                    audienceSockets.add(ws);
+                    ws.send(JSON.stringify({ type: 'audience_joined' }));
+                    addLog(`[CONNECT] Spectator joined as AUDIENCE (0 performer slots consumed)`);
+                    return;
                 }
-                sendOSC_Float(playerNum, "active", 1);
-                addLog(`[CONNECT] Slot ${playerNum} registered as: ${cleanName}`);
-                updatePlayerCount();
+                const cleanName = typeof data.name === 'string' ? data.name.substring(0, 12) : "Anonymous";
+                if (slotIndex !== -1 && slots[slotIndex] && slots[slotIndex].ws === ws) {
+                    slots[slotIndex].name = cleanName;
+                    slots[slotIndex].isJoined = true;
+                    slots[slotIndex].lastSeen = Date.now();
+                    sendOSC_String(playerNum, "name", cleanName);
+                    if (typeof data.color_hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.color_hex)) {
+                        sendOSC_String(playerNum, "color", data.color_hex);
+                    }
+                    sendOSC_Float(playerNum, "active", 1);
+                    addLog(`[CONNECT] Slot ${playerNum} registered as: ${cleanName}`);
+                    updatePlayerCount();
+                }
                 return;
             }
             if (data.type === 'control') {
+                if (slotIndex === -1 || !slots[slotIndex] || slots[slotIndex].ws !== ws)
+                    return;
                 const value = typeof data.value === 'number' ? data.value : (data.value ? 1 : 0);
                 const key = String(data.id);
                 if (slotStates[slotIndex][key] !== value) {
@@ -457,6 +505,8 @@ wss.on('connection', (ws) => {
                 return;
             }
             if (data.type === 'input') {
+                if (slotIndex === -1 || !slots[slotIndex] || slots[slotIndex].ws !== ws)
+                    return;
                 const parsedX = parseFloat(data.x);
                 const parsedY = parseFloat(data.y);
                 const x = isNaN(parsedX) ? 0 : Math.max(-1, Math.min(1, parsedX));
@@ -475,16 +525,27 @@ wss.on('connection', (ws) => {
             }
             if (data.type === 'tap') {
                 const rate = typeof data.rate === 'number' ? data.rate : 0;
-                sendOSC_Float(playerNum, "tap_rate", rate);
-                sendOSC_Float(playerNum, "b1", 1);
-                sendOSC_Float(playerNum, "action1", 1);
-                setTimeout(() => {
-                    sendOSC_Float(playerNum, "b1", 0);
-                    sendOSC_Float(playerNum, "action1", 0);
-                }, 50);
+                if (audienceSockets.has(ws)) {
+                    try {
+                        udpPort.send({ address: '/bridge/hype', args: [{ type: "f", value: 1.0 }] }, "127.0.0.1", OSC_PORT);
+                        udpPort.send({ address: '/audience/tap', args: [{ type: "f", value: rate }] }, "127.0.0.1", OSC_PORT);
+                    }
+                    catch (e) { }
+                }
+                else if (slotIndex !== -1 && slots[slotIndex]?.ws === ws) {
+                    sendOSC_Float(playerNum, "tap_rate", rate);
+                    sendOSC_Float(playerNum, "b1", 1);
+                    sendOSC_Float(playerNum, "action1", 1);
+                    setTimeout(() => {
+                        sendOSC_Float(playerNum, "b1", 0);
+                        sendOSC_Float(playerNum, "action1", 0);
+                    }, 50);
+                }
                 return;
             }
             if (data.type === 'flush') {
+                if (slotIndex === -1 || !slots[slotIndex] || slots[slotIndex].ws !== ws)
+                    return;
                 slotStates[slotIndex] = {};
                 sendOSC_Float(playerNum, "x", 0);
                 sendOSC_Float(playerNum, "y", 0);
@@ -502,22 +563,42 @@ wss.on('connection', (ws) => {
         }
         catch (e) { }
     });
-    ws.on('close', () => { freeSlot(slotIndex); });
+    ws.on('close', () => {
+        if (audienceSockets.has(ws)) {
+            audienceSockets.delete(ws);
+            addLog(`[DISCONNECT] Audience spectator left.`);
+            return;
+        }
+        if (slotIndex !== -1 && slots[slotIndex]?.ws === ws) {
+            freeSlot(slotIndex);
+        }
+    });
 });
-// Watchdog (8-second timeout to reap inactive ghost inputs)
+// Watchdog (8-second timeout for inactive joined players, 10-second deadline for unjoined connections)
 setInterval(() => {
     const now = Date.now();
     for (let i = 0; i < MAX_USERS; i++) {
-        if (slots[i].ws !== null && now - slots[i].lastSeen > 8000) {
-            addLog(`[TIMEOUT] Slot ${i + 1} inactive >8s. Reaping slot.`);
-            try {
-                slots[i].ws?.terminate();
+        const slot = slots[i];
+        if (slot.ws !== null) {
+            if (!slot.isJoined && now - slot.connectedAt > 10000) {
+                addLog(`[TIMEOUT] Slot ${i + 1} unauthenticated >10s. Reaping slot.`);
+                try {
+                    slot.ws?.terminate();
+                }
+                catch (e) { }
+                freeSlot(i);
             }
-            catch (e) { }
-            freeSlot(i);
+            else if (slot.isJoined && now - slot.lastSeen > 8000) {
+                addLog(`[TIMEOUT] Slot ${i + 1} (${slot.name}) inactive >8s. Reaping slot.`);
+                try {
+                    slot.ws?.terminate();
+                }
+                catch (e) { }
+                freeSlot(i);
+            }
         }
     }
-}, 4000);
+}, 2000);
 // Deterministic 1000ms Heartbeat to TouchDesigner
 setInterval(() => {
     sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);

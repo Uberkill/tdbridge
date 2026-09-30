@@ -7,6 +7,7 @@ exports.BUILTIN_PROFILES = {
         name: 'Gamepad & Actions',
         type: 'gamepad',
         blueprint: [
+            { type: 'dpad', id: 'dpad', label: 'Direction', color: '#ffffff' },
             { type: 'button', id: 'b1', alias: 'action1', label: 'Rotate', color: '#4285f4' },
             { type: 'button', id: 'b2', alias: 'action2', label: 'Change Color', color: '#ea4335' },
             { type: 'button', id: 'b3', alias: 'action3', label: 'Feed Fish', color: '#ff9800' },
