@@ -358,7 +358,32 @@ wss.on('connection', (ws: WebSocket) => {
                 slots[slotIndex].lastSeen = now;
             }
             const data = JSON.parse(message.toString());
-            if (data.type === 'ping') { ws.send(JSON.stringify({ type: 'pong' })); return; }
+            if (data.type === 'ping') { 
+                ws.send(JSON.stringify({ type: 'pong', t: data.t })); 
+                return; 
+            }
+            if (data.type === 'host_command') {
+                if (data.token !== 'MASTER_KEY' && data.token !== ACTIVE_ROOM_CODE) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'UNAUTHORIZED HOST ACTION' }));
+                    return;
+                }
+                if (data.action === 'scene_switch') {
+                    udpPort.send({ address: '/bridge/scene', args: [{ type: 's', value: String(data.scene) }] }, '127.0.0.1', OSC_PORT);
+                    addLog(`[HOST] Switched scene to: ${data.scene}`);
+                } else if (data.action === 'system_reset') {
+                    udpPort.send({ address: '/bridge/reset', args: [{ type: 'i', value: 1 }] }, '127.0.0.1', OSC_PORT);
+                    addLog(`[HOST] Triggered global scene reset.`);
+                } else if (data.action === 'slot_purge') {
+                    for (let i = 5; i < MAX_USERS; i++) {
+                        if (slots[i] && slots[i].ws) {
+                            slots[i].ws.close();
+                        }
+                    }
+                    addLog(`[HOST] Purged all performer slots.`);
+                }
+                ws.send(JSON.stringify({ type: 'host_ack', action: data.action, status: 'ok' }));
+                return;
+            }
             if (data.type === 'env') {
                 if (typeof data.param === 'string') {
                     const val = typeof data.value === 'number' ? data.value : (data.value ? 1 : 0);

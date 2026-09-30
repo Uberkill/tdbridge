@@ -1,1383 +1,1257 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TDBridge // Swiss Graphic Monolith Enterprise Showcase</title>
-    <!-- Primary Web Fonts & Air-Gapped Fallbacks -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-black: #000000;
-            --bg-surface: #0a0a0c;
-            --bg-card: #111114;
-            --border-white: #ffffff;
-            --border-mid: #333338;
-            --border-subtle: #1f1f24;
-
-            --text-white: #ffffff;
-            --text-dim: #8e8e93;
-            --text-muted: #545458;
-            --text-black: #000000;
-
-            --status-green: #00ff66;
-            --status-cyan: #00e5ff;
-            --status-amber: #ffaa00;
-            --status-crimson: #ff3b30;
-
-            --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;
-            --font-syne: 'Syne', sans-serif;
-            --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
-        }
-
-        *, *::before, *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background-color: var(--bg-black);
-            color: var(--text-white);
-            font-family: var(--font-display);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 24px 16px 60px 16px;
-            overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        /* Top Showcase Command Bar */
-        .showcase-header {
-            width: 100%;
-            max-width: 1080px;
-            border-bottom: 2px solid var(--border-white);
-            padding-bottom: 16px;
-            margin-bottom: 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-
-        .showcase-title-block h1 {
-            font-size: 2.25rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            line-height: 1;
-        }
-
-        .showcase-title-block p {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            letter-spacing: 0.1em;
-            color: var(--text-dim);
-            margin-top: 6px;
-        }
-
-        /* Simulator Control Bar */
-        .sim-bar {
-            width: 100%;
-            max-width: 1080px;
-            border: 2px solid var(--border-white);
-            background: var(--bg-surface);
-            padding: 12px 16px;
-            margin-bottom: 24px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .sim-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .sim-label {
-            font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            letter-spacing: 0.12em;
-            color: var(--text-dim);
-            text-transform: uppercase;
-        }
-
-        .sim-btn {
-            background: var(--bg-black);
-            color: var(--text-white);
-            border: 1px solid var(--border-mid);
-            font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            font-weight: 700;
-            letter-spacing: 0.06em;
-            padding: 6px 10px;
-            cursor: pointer;
-            transition: all 0.08s ease;
-            text-transform: uppercase;
-        }
-
-        .sim-btn:hover {
-            border-color: var(--border-white);
-        }
-
-        .sim-btn.is-active, .sim-btn:active {
-            background: var(--text-white);
-            color: var(--bg-black);
-            border-color: var(--border-white);
-        }
-
-        .sim-btn.danger {
-            border-color: var(--status-crimson);
-            color: var(--status-crimson);
-        }
-        .sim-btn.danger:hover, .sim-btn.danger.is-active {
-            background: var(--status-crimson);
-            color: var(--text-white);
-        }
-
-        /* Main Workspace Stage */
-        .workspace-stage {
-            width: 100%;
-            max-width: 1080px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 32px;
-        }
-
-        /* Device Frame Container */
-        .device-wrapper {
-            transition: width 0.25s ease, max-width 0.25s ease;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-        }
-
-        .device-wrapper.phone {
-            max-width: 400px;
-        }
-
-        .device-wrapper.tablet {
-            max-width: 820px;
-        }
-
-        .device-wrapper.desktop {
-            max-width: 1080px;
-        }
-
-        /* The Swiss Monolith Screen Enclosure */
-        .screen-enclosure {
-            width: 100%;
-            min-height: 640px;
-            border: 2px solid var(--border-white);
-            background: var(--bg-black);
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95);
-            overflow: hidden;
-            touch-action: none;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-
-        /* Screen Top HUD */
-        .screen-hud {
-            height: 48px;
-            border-bottom: 2px solid var(--border-white);
-            background: var(--bg-black);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 14px;
-            z-index: 10;
-        }
-
-        .hud-left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-        }
-
-        .slot-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background-color: var(--status-cyan);
-            box-shadow: 0 0 8px var(--status-cyan);
-        }
-
-        .hud-center {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .hud-badge {
-            font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            letter-spacing: 0.08em;
-            padding: 3px 8px;
-            border: 1px solid var(--border-white);
-            background: var(--bg-black);
-            color: var(--text-white);
-            text-transform: uppercase;
-        }
-
-        .hud-badge.green {
-            border-color: var(--status-green);
-            color: var(--status-green);
-        }
-
-        .hud-badge.amber {
-            border-color: var(--status-amber);
-            color: var(--status-amber);
-        }
-
-        .hud-badge.cyan {
-            border-color: var(--status-cyan);
-            color: var(--status-cyan);
-        }
-
-        .hud-badge.crimson {
-            border-color: var(--status-crimson);
-            color: var(--status-crimson);
-        }
-
-        .hud-btn {
-            background: var(--bg-black);
-            color: var(--text-white);
-            border: 1px solid var(--border-white);
-            font-family: var(--font-mono);
-            font-size: 0.625rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            padding: 4px 8px;
-            cursor: pointer;
-            transition: all 0.06s ease;
-        }
-
-        .hud-btn:active {
-            background: var(--text-white);
-            color: var(--bg-black);
-        }
-
-        /* Archetype Surface Tabs */
-        .surface-tabs {
-            display: flex;
-            border-bottom: 2px solid var(--border-white);
-            background: var(--bg-surface);
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 8px 10px;
-            font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            background: var(--bg-surface);
-            color: var(--text-dim);
-            border: none;
-            border-right: 1px solid var(--border-mid);
-            cursor: pointer;
-            text-transform: uppercase;
-            transition: all 0.08s ease;
-        }
-
-        .tab-btn:last-child {
-            border-right: none;
-        }
-
-        .tab-btn.is-active {
-            background: var(--bg-black);
-            color: var(--text-white);
-            border-bottom: 2px solid var(--border-white);
-            margin-bottom: -2px;
-        }
-
-        /* Controller Workspace (Dynamic Layout) */
-        .controller-workspace {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            background: var(--bg-black);
-        }
-
-        .device-wrapper.tablet .controller-workspace,
-        .device-wrapper.desktop .controller-workspace {
-            flex-direction: row;
-        }
-
-        /* Panes */
-        .workspace-pane {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 14px;
-            position: relative;
-            border-bottom: 2px solid var(--border-white);
-        }
-
-        .device-wrapper.tablet .workspace-pane:first-child,
-        .device-wrapper.desktop .workspace-pane:first-child {
-            border-bottom: none;
-            border-right: 2px solid var(--border-white);
-            flex: 1.1;
-        }
-
-        .pane-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            letter-spacing: 0.1em;
-            color: var(--text-dim);
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-
-        .pane-val {
-            color: var(--text-white);
-            font-weight: 700;
-        }
-
-        /* 1. Joystick & Oscilloscope Zone */
-        .interactive-zone {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            min-height: 240px;
-        }
-
-        .reticle-boundary {
-            width: 240px;
-            height: 240px;
-            border: 2px solid var(--border-white);
-            border-radius: 50%;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: crosshair;
-            background: radial-gradient(circle, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0.6) 100%);
-        }
-
-        .crosshair-h {
-            position: absolute;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: var(--border-mid);
-            pointer-events: none;
-        }
-
-        .crosshair-v {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 1px;
-            background: var(--border-mid);
-            pointer-events: none;
-        }
-
-        .ring-dashed {
-            position: absolute;
-            width: 60%;
-            height: 60%;
-            border: 1px dashed var(--border-mid);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        /* Vector Oscilloscope Canvas */
-        #vector-canvas {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        /* Thumb Puck */
-        .reticle-puck {
-            width: 54px;
-            height: 54px;
-            border: 2px solid var(--border-white);
-            background: var(--bg-black);
-            border-radius: 50%;
-            position: absolute;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
-            transform: translate(0px, 0px);
-            will-change: transform;
-            box-shadow: 0 0 20px rgba(255,255,255,0.18);
-        }
-
-        .puck-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--status-cyan);
-        }
-
-        /* Actions & Right Pane */
-        .actions-pane {
-            flex: 0.9;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 14px;
-        }
-
-        /* 4-Trigger Block */
-        .triggers-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
-            gap: 10px;
-            flex: 1;
-        }
-
-        .mono-trigger {
-            background: var(--bg-black);
-            border: 2px solid var(--border-white);
-            color: var(--text-white);
-            min-height: 68px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            cursor: pointer;
-            transition: transform 0.05s ease, background 0.05s ease, color 0.05s ease;
-        }
-
-        .mono-trigger:active, .mono-trigger.is-active {
-            background: var(--text-white) !important;
-            color: var(--bg-black) !important;
-            transform: scale(0.97);
-        }
-
-        .mono-trigger:active .trigger-sub,
-        .mono-trigger.is-active .trigger-sub {
-            color: #333333 !important;
-        }
-
-        .trigger-title {
-            font-size: 1.0625rem;
-            font-weight: 700;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-        }
-
-        .trigger-sub {
-            font-family: var(--font-mono);
-            font-size: 0.625rem;
-            color: var(--text-dim);
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
-
-        /* Macro Modulation Slider */
-        .macro-module {
-            border: 2px solid var(--border-white);
-            background: var(--bg-surface);
-            padding: 10px 14px;
-        }
-
-        .macro-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            letter-spacing: 0.08em;
-            margin-bottom: 8px;
-        }
-
-        .macro-range {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 14px;
-            background: var(--bg-black);
-            border: 1px solid var(--border-white);
-            outline: none;
-        }
-
-        .macro-range::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 26px;
-            height: 22px;
-            background: var(--border-white);
-            border: 2px solid var(--bg-black);
-            cursor: ew-resize;
-        }
-
-        /* 2. LATENT XY KAOSS SURFACE */
-        .kaoss-surface {
-            flex: 1;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            position: relative;
-            cursor: crosshair;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-
-        .kaoss-grid-lines {
-            position: absolute;
-            inset: 0;
-            background-size: 40px 40px;
-            background-image: 
-                linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-        }
-
-        .kaoss-crosshair-reticle {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            border: 1px solid var(--status-cyan);
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-        }
-
-        /* 3. VJ 4-CHANNEL MIXER */
-        .mixer-surface {
-            flex: 1;
-            width: 100%;
-            display: flex;
-            gap: 12px;
-            padding: 16px;
-            background: var(--bg-surface);
-        }
-
-        .mixer-channel {
-            flex: 1;
-            border: 2px solid var(--border-white);
-            background: var(--bg-black);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 10px 8px;
-            position: relative;
-        }
-
-        .channel-label {
-            font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            margin-bottom: 8px;
-        }
-
-        .fader-track-vertical {
-            flex: 1;
-            width: 32px;
-            border: 1px solid var(--border-mid);
-            background: #0c0c0e;
-            position: relative;
-            cursor: ns-resize;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column-reverse;
-        }
-
-        .fader-fill {
-            width: 100%;
-            background: var(--text-white);
-            transition: height 0.05s ease;
-        }
-
-        .channel-val {
-            font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            font-weight: 700;
-            margin-top: 8px;
-        }
-
-        .channel-kill-btn {
-            margin-top: 8px;
-            width: 100%;
-            padding: 4px 0;
-            background: var(--bg-black);
-            border: 1px solid var(--border-white);
-            color: var(--text-white);
-            font-family: var(--font-mono);
-            font-size: 0.625rem;
-            font-weight: 700;
-            cursor: pointer;
-        }
-        .channel-kill-btn.is-muted {
-            background: var(--status-crimson);
-            border-color: var(--status-crimson);
-            color: #fff;
-        }
-
-        /* ============================================================== */
-        /* FAULT STATE OVERLAYS & FALLBACKS                               */
-        /* ============================================================== */
-        
-        .overlay-modal {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.94);
-            backdrop-filter: blur(4px);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            z-index: 50;
-            display: none;
-        }
-
-        .modal-card {
-            width: 100%;
-            max-width: 420px;
-            border: 2px solid var(--border-white);
-            background: var(--bg-card);
-            padding: 24px;
-            position: relative;
-        }
-
-        .modal-header {
-            border-bottom: 2px solid var(--border-white);
-            padding-bottom: 12px;
-            margin-bottom: 14px;
-        }
-
-        .modal-header h2 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: -0.01em;
-            text-transform: uppercase;
-        }
-
-        .modal-header.danger h2 {
-            color: var(--status-crimson);
-        }
-
-        /* Segmented Brutalist Progress Bar */
-        .progress-block-track {
-            display: flex;
-            gap: 4px;
-            margin: 16px 0;
-        }
-
-        .progress-segment {
-            flex: 1;
-            height: 14px;
-            border: 1px solid var(--border-white);
-            background: var(--bg-black);
-        }
-
-        .progress-segment.filled {
-            background: var(--border-white);
-        }
-
-        .modal-telemetry {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            letter-spacing: 0.08em;
-            color: var(--text-dim);
-            margin-bottom: 16px;
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 18px;
-        }
-
-        .modal-btn {
-            flex: 1;
-            padding: 10px;
-            border: 2px solid var(--border-white);
-            background: var(--bg-black);
-            color: var(--text-white);
-            font-family: var(--font-display);
-            font-weight: 700;
-            font-size: 0.8125rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: all 0.06s ease;
-        }
-
-        .modal-btn:active {
-            background: var(--text-white);
-            color: var(--bg-black);
-        }
-
-        .modal-btn.primary {
-            background: var(--text-white);
-            color: var(--bg-black);
-        }
-
-        /* Emergency Crash Trace Dump */
-        .trace-dump {
-            background: #000;
-            border: 1px solid var(--border-mid);
-            padding: 10px;
-            font-family: var(--font-mono);
-            font-size: 0.625rem;
-            color: var(--status-crimson);
-            line-height: 1.4;
-            max-height: 120px;
-            overflow-y: auto;
-            margin: 12px 0;
-        }
-
-        /* Typography Specimen Section */
-        .specimen-section {
-            width: 100%;
-            max-width: 1080px;
-            border: 2px solid var(--border-white);
-            background: var(--bg-surface);
-            padding: 24px;
-            margin-top: 32px;
-        }
-
-        .specimen-header {
-            border-bottom: 2px solid var(--border-white);
-            padding-bottom: 14px;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-        }
-
-        .specimen-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-        }
-
-        .specimen-card {
-            border: 1px solid var(--border-mid);
-            background: var(--bg-card);
-            padding: 18px;
-        }
-
-        .font-name-tag {
-            font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            color: var(--status-cyan);
-            letter-spacing: 0.1em;
-            margin-bottom: 8px;
-        }
-
-        .specimen-sample {
-            font-size: 1.5rem;
-            line-height: 1.2;
-            margin-bottom: 10px;
-        }
-
-        .specimen-desc {
-            font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            color: var(--text-dim);
-            line-height: 1.4;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>TDBridge // Swiss Graphic Monolith Enterprise Showcase</title>
+  <!-- Allowlisted Antigravity Tailwind Dependency -->
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&family=Syne:wght@700;800&display=swap');
+
+    :root {
+      --bg-black: #000000;
+      --bg-surface: #0a0a0c;
+      --bg-card: #111114;
+      --border-white: #ffffff;
+      --border-mid: #333338;
+      --border-subtle: #1f1f24;
+
+      --text-white: #ffffff;
+      --text-dim: #8e8e93;
+      --text-muted: #545458;
+      --text-black: #000000;
+
+      --status-green: #00ff66;
+      --status-cyan: #00e5ff;
+      --status-amber: #ffaa00;
+      --status-crimson: #ff3b30;
+
+      --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+      --font-syne: 'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-black);
+      color: var(--text-white);
+      font-family: var(--font-display);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px 60px 16px;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Showcase Command Bar */
+    .showcase-header {
+      width: 100%;
+      max-width: 1080px;
+      border-bottom: 2px solid var(--border-white);
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .showcase-title-block h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+
+    .showcase-title-block p {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      margin-top: 6px;
+    }
+
+    /* Simulator Control Bar */
+    .sim-bar {
+      width: 100%;
+      max-width: 1080px;
+      border: 2px solid var(--border-white);
+      background: var(--bg-surface);
+      padding: 12px 16px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sim-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .sim-label {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.12em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .sim-btn {
+      background: var(--bg-black);
+      color: var(--text-white);
+      border: 1px solid var(--border-mid);
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 6px 10px;
+      cursor: pointer;
+      transition: all 0.08s ease;
+      text-transform: uppercase;
+    }
+
+    .sim-btn:hover {
+      border-color: var(--border-white);
+    }
+
+    .sim-btn.is-active, .sim-btn:active {
+      background: var(--text-white);
+      color: var(--bg-black);
+      border-color: var(--border-white);
+    }
+
+    .sim-btn.danger {
+      border-color: var(--status-crimson);
+      color: var(--status-crimson);
+    }
+    .sim-btn.danger:hover, .sim-btn.danger.is-active {
+      background: var(--status-crimson);
+      color: var(--text-white);
+    }
+
+    /* Device Enclosure */
+    .device-wrapper {
+      transition: width 0.25s ease, max-width 0.25s ease;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .device-wrapper.phone { max-width: 420px; }
+    .device-wrapper.tablet { max-width: 860px; }
+    .device-wrapper.desktop { max-width: 1080px; }
+
+    .screen-enclosure {
+      width: 100%;
+      min-height: 640px;
+      border: 2px solid var(--border-white);
+      background: var(--bg-black);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95);
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+    }
+
+    /* Screen Top HUD */
+    .screen-hud {
+      height: 48px;
+      border-bottom: 2px solid var(--border-white);
+      background: var(--bg-black);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 14px;
+      z-index: 10;
+    }
+
+    .hud-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .slot-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--status-cyan);
+      box-shadow: 0 0 8px var(--status-cyan);
+    }
+
+    .hud-center {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hud-badge {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border: 1px solid var(--border-white);
+      background: var(--bg-black);
+      color: var(--text-white);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .hud-badge.green { border-color: var(--status-green); color: var(--status-green); }
+    .hud-badge.amber { border-color: var(--status-amber); color: var(--status-amber); }
+    .hud-badge.cyan { border-color: var(--status-cyan); color: var(--status-cyan); }
+    .hud-badge.crimson { border-color: var(--status-crimson); color: var(--status-crimson); }
+
+    .hud-btn {
+      background: var(--bg-black);
+      color: var(--text-white);
+      border: 1px solid var(--border-white);
+      font-family: var(--font-mono);
+      font-size: 0.625rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    .hud-btn:active { background: var(--text-white); color: var(--bg-black); }
+
+    /* Role Tier Navigation Bar */
+    .role-bar {
+      display: flex;
+      border-bottom: 2px solid var(--border-white);
+      background: var(--bg-surface);
+    }
+
+    .role-btn {
+      flex: 1;
+      padding: 10px 8px;
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      background: var(--bg-surface);
+      color: var(--text-dim);
+      border: none;
+      border-right: 1px solid var(--border-mid);
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.08s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .role-btn:last-child { border-right: none; }
+    .role-btn.is-active {
+      background: var(--bg-black);
+      color: var(--text-white);
+      border-bottom: 2px solid var(--border-white);
+      margin-bottom: -2px;
+    }
+
+    /* Workspace Panes */
+    .controller-workspace {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: var(--bg-black);
+    }
+    .device-wrapper.tablet .controller-workspace,
+    .device-wrapper.desktop .controller-workspace {
+      flex-direction: row;
+    }
+
+    .workspace-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 14px;
+      position: relative;
+      border-bottom: 2px solid var(--border-white);
+    }
+    .device-wrapper.tablet .workspace-pane:first-child,
+    .device-wrapper.desktop .workspace-pane:first-child {
+      border-bottom: none;
+      border-right: 2px solid var(--border-white);
+      flex: 1.1;
+    }
+
+    .pane-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    .pane-val { color: var(--text-white); font-weight: 700; }
+
+    /* Joystick & Oscilloscope Zone */
+    .interactive-zone {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      min-height: 240px;
+    }
+
+    .reticle-boundary {
+      width: 240px;
+      height: 240px;
+      border: 2px solid var(--border-white);
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      background: radial-gradient(circle, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0.6) 100%);
+    }
+
+    .crosshair-h { position: absolute; left: 0; right: 0; height: 1px; background: var(--border-mid); pointer-events: none; }
+    .crosshair-v { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border-mid); pointer-events: none; }
+    .ring-dashed { position: absolute; width: 60%; height: 60%; border: 1px dashed var(--border-mid); border-radius: 50%; pointer-events: none; }
+
+    #vector-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .reticle-puck {
+      width: 54px;
+      height: 54px;
+      border: 2px solid var(--border-white);
+      background: var(--bg-black);
+      border-radius: 50%;
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      transform: translate(0px, 0px);
+      will-change: transform;
+      box-shadow: 0 0 20px rgba(255,255,255,0.18);
+    }
+    .puck-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-cyan); }
+
+    /* Actions & Sliders Right Pane */
+    .actions-pane {
+      flex: 0.95;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .triggers-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .mono-trigger {
+      background: var(--bg-black);
+      border: 2px solid var(--border-white);
+      color: var(--text-white);
+      min-height: 68px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: transform 0.05s ease, background 0.05s ease, color 0.05s ease;
+    }
+    .mono-trigger:active, .mono-trigger.is-active {
+      background: var(--text-white) !important;
+      color: var(--bg-black) !important;
+      transform: scale(0.97);
+    }
+    .mono-trigger:active .trigger-sub,
+    .mono-trigger.is-active .trigger-sub { color: #333333 !important; }
+
+    .trigger-title {
+      font-size: 1.0625rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .trigger-sub {
+      font-family: var(--font-mono);
+      font-size: 0.625rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* Dual Sliders: s1 (Speed) & s2 (Size) */
+    .dual-sliders-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .slider-box {
+      border: 2px solid var(--border-white);
+      background: var(--bg-surface);
+      padding: 8px 12px;
+    }
+
+    .slider-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .mono-range {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 12px;
+      background: var(--bg-black);
+      border: 1px solid var(--border-white);
+      outline: none;
+    }
+    .mono-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 20px;
+      background: var(--border-white);
+      border: 2px solid var(--bg-black);
+      cursor: ew-resize;
+    }
+
+    /* ============================================================== */
+    /* TIER 1: MASTER OPERATOR CONSOLE                                */
+    /* ============================================================== */
+    .master-console {
+      flex: 1;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: var(--bg-surface);
+      overflow-y: auto;
+    }
+
+    .master-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .master-card {
+      border: 2px solid var(--border-white);
+      background: var(--bg-black);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .master-card h3 {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border-mid);
+      padding-bottom: 6px;
+    }
+
+    .scene-select-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+    }
+
+    .scene-btn {
+      padding: 10px 4px;
+      background: var(--bg-black);
+      border: 1px solid var(--border-mid);
+      color: var(--text-white);
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    .scene-btn.is-active {
+      background: var(--text-white);
+      color: var(--bg-black);
+      border-color: var(--border-white);
+    }
+
+    .roster-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+    }
+    .roster-table th, .roster-table td {
+      border: 1px solid var(--border-mid);
+      padding: 6px 8px;
+      text-align: left;
+    }
+    .roster-table th { background: #16161c; color: var(--text-dim); }
+
+    /* ============================================================== */
+    /* TIER 3: AUDIENCE SPECTATOR SURFACE                             */
+    /* ============================================================== */
+    .audience-surface {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      background: var(--bg-black);
+    }
+
+    .bpm-pulser {
+      width: 160px;
+      height: 160px;
+      border: 3px solid var(--border-white);
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.06s ease, background 0.06s ease;
+      box-shadow: 0 0 24px rgba(255,255,255,0.1);
+    }
+    .bpm-pulser:active {
+      transform: scale(0.94);
+      background: var(--text-white);
+      color: var(--bg-black);
+    }
+    .bpm-pulser:active .bpm-sub { color: #222 !important; }
+
+    .bpm-val { font-size: 2.25rem; font-weight: 700; line-height: 1; }
+    .bpm-sub { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.1em; color: var(--text-dim); margin-top: 4px; }
+
+    .reaction-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .reaction-btn {
+      height: 72px;
+      border: 2px solid var(--border-white);
+      background: var(--bg-surface);
+      color: #fff;
+      font-size: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .reaction-btn:active {
+      background: var(--text-white);
+      transform: scale(0.95);
+    }
+    .reaction-btn-label {
+      font-family: var(--font-mono);
+      font-size: 0.5625rem;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+    }
+    .reaction-btn:active .reaction-btn-label { color: #000; }
+
+    /* ============================================================== */
+    /* EXTENSIBLE SWISS COMPONENT CATALOG                             */
+    /* ============================================================== */
+    .catalog-section {
+      width: 100%;
+      max-width: 1080px;
+      border: 2px solid var(--border-white);
+      background: var(--bg-surface);
+      padding: 24px;
+      margin-top: 32px;
+    }
+
+    .catalog-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .catalog-item {
+      border: 1px solid var(--border-mid);
+      background: var(--bg-black);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .catalog-title {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.1em;
+      color: var(--status-cyan);
+      font-weight: 700;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 6px;
+    }
+
+    /* Rotary Dial Atom */
+    .dial-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .mono-dial {
+      width: 72px;
+      height: 72px;
+      border: 2px solid var(--border-white);
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background: #0d0d10;
+    }
+    .dial-needle {
+      position: absolute;
+      top: 8px;
+      width: 3px;
+      height: 24px;
+      background: var(--text-white);
+      transform-origin: bottom center;
+      transform: rotate(-45deg);
+      transition: transform 0.06s ease;
+    }
+
+    /* VU Peak Meter Atom */
+    .vu-meter-row {
+      display: flex;
+      gap: 3px;
+      height: 18px;
+      align-items: flex-end;
+    }
+    .vu-bar {
+      flex: 1;
+      height: 100%;
+      background: #222;
+      border: 1px solid #111;
+    }
+    .vu-bar.lit { background: var(--status-green); }
+    .vu-bar.lit.warn { background: var(--status-amber); }
+    .vu-bar.lit.peak { background: var(--status-crimson); }
+
+    /* Segmented Toggle Atom */
+    .mono-toggle-group {
+      display: flex;
+      border: 1px solid var(--border-white);
+    }
+    .mono-toggle-btn {
+      flex: 1;
+      padding: 6px 4px;
+      font-family: var(--font-mono);
+      font-size: 0.625rem;
+      font-weight: 700;
+      background: var(--bg-black);
+      color: var(--text-dim);
+      border: none;
+      cursor: pointer;
+    }
+    .mono-toggle-btn.is-active {
+      background: var(--text-white);
+      color: var(--bg-black);
+    }
+  </style>
 </head>
 <body>
 
-    <!-- TOP SHOWCASE HEADER -->
-    <header class="showcase-header">
-        <div class="showcase-title-block">
-            <h1>TDBRIDGE // SWISS MONOLITH</h1>
-            <p>ENTERPRISE DESIGN SYSTEM, GENERATIVE ML STATES & FAULT SPECIFICATION</p>
-        </div>
-        <div class="hud-center">
-            <span class="hud-badge green" id="sim-engine-tag">60.0 FPS // LIVE</span>
-            <span class="hud-badge cyan" id="sim-ml-tag">ML: INFERENCE</span>
-        </div>
-    </header>
+  <!-- TOP SHOWCASE HEADER -->
+  <header class="showcase-header">
+    <div class="showcase-title-block">
+      <h1>TDBRIDGE // SWISS MONOLITH</h1>
+      <p>MULTI-TIER EVENT SURFACE, REAL RTT TELEMETRY & COMPONENT CATALOG</p>
+    </div>
+    <div class="hud-center">
+      <span class="hud-badge green" id="sim-rtt-tag">LINK: VERIFIED // RTT: 14ms</span>
+      <span class="hud-badge cyan" id="sim-role-tag">ROLE: PERFORMER</span>
+    </div>
+  </header>
 
-    <!-- INTERACTIVE SIMULATOR TOOLBAR -->
-    <div class="sim-bar">
-        <div class="sim-group">
-            <span class="sim-label">VIEWPORT:</span>
-            <button class="sim-btn is-active" id="btn-view-phone">MOBILE (390PX)</button>
-            <button class="sim-btn" id="btn-view-tablet">IPAD / TABLET</button>
-            <button class="sim-btn" id="btn-view-desktop">DESKTOP PC</button>
-        </div>
-
-        <div class="sim-group">
-            <span class="sim-label">ML STATE:</span>
-            <button class="sim-btn" id="btn-ml-cycle">CYCLE ML STATE (<span id="ml-state-name">INFERENCE</span>)</button>
-        </div>
-
-        <div class="sim-group">
-            <span class="sim-label">FAULT SIMULATION:</span>
-            <button class="sim-btn" id="btn-fault-loading">LOADING BAR</button>
-            <button class="sim-btn" id="btn-fault-disconnect">SIGNAL DROP</button>
-            <button class="sim-btn" id="btn-fault-cook">TD ENGINE LAG</button>
-            <button class="sim-btn" id="btn-fault-exit">EXIT CONFIRM</button>
-            <button class="sim-btn danger" id="btn-fault-crash">CRASH BOUNDARY</button>
-        </div>
+  <!-- INTERACTIVE SIMULATOR TOOLBAR -->
+  <div class="sim-bar">
+    <div class="sim-group">
+      <span class="sim-label">VIEWPORT:</span>
+      <button class="sim-btn is-active" id="btn-view-phone">MOBILE (420PX)</button>
+      <button class="sim-btn" id="btn-view-tablet">IPAD / TABLET</button>
+      <button class="sim-btn" id="btn-view-desktop">DESKTOP</button>
     </div>
 
-    <!-- MAIN WORKSPACE STAGE -->
-    <main class="workspace-stage">
+    <div class="sim-group">
+      <span class="sim-label">RTT LATENCY SIMULATOR:</span>
+      <button class="sim-btn is-active" id="btn-rtt-low">14MS (STAGE FIBER)</button>
+      <button class="sim-btn" id="btn-rtt-med">68MS (VENUE WI-FI)</button>
+      <button class="sim-btn danger" id="btn-rtt-drop">TIMEOUT (DROPPED)</button>
+    </div>
+  </div>
 
-        <div class="device-wrapper phone" id="device-wrapper">
-            <div class="screen-enclosure" id="screen-enclosure">
-                
-                <!-- Screen Top HUD -->
-                <header class="screen-hud">
-                    <div class="hud-left">
-                        <span class="slot-dot" id="screen-slot-dot"></span>
-                        <span id="screen-slot-id">SLOT #06</span>
-                    </div>
-                    <div class="hud-center">
-                        <span class="hud-badge" id="screen-engine-hud">60.0 FPS // LINKED</span>
-                    </div>
-                    <div class="hud-right">
-                        <button class="hud-btn" id="screen-exit-trigger">EXIT</button>
-                    </div>
-                </header>
+  <!-- MAIN WORKSPACE STAGE -->
+  <main class="w-full max-w-[1080px] flex flex-col items-center gap-8">
 
-                <!-- Archetype Tabs -->
-                <nav class="surface-tabs">
-                    <button class="tab-btn is-active" data-surface="gamepad">01 // GAMEPAD</button>
-                    <button class="tab-btn" data-surface="kaoss">02 // LATENT XY</button>
-                    <button class="tab-btn" data-surface="mixer">03 // VJ MIXER</button>
-                </nav>
+    <div class="device-wrapper phone" id="device-wrapper">
+      <div class="screen-enclosure" id="screen-enclosure">
+        
+        <!-- Screen Top HUD -->
+        <header class="screen-hud">
+          <div class="hud-left">
+            <span class="slot-dot" id="screen-slot-dot"></span>
+            <span id="screen-slot-id">SLOT #06</span>
+          </div>
+          <div class="hud-center">
+            <span class="hud-badge green" id="screen-rtt-hud">RTT: 14ms // SYNC</span>
+          </div>
+          <div class="hud-right">
+            <button class="hud-btn" id="screen-exit-btn">DISCONNECT</button>
+          </div>
+        </header>
 
-                <!-- Surface 01: Universal Pro Gamepad -->
-                <div class="controller-workspace" id="surface-gamepad">
-                    <!-- Left / Upper: Analog Reticle & Oscilloscope -->
-                    <div class="workspace-pane">
-                        <div class="pane-header">
-                            <span>ANALOG VECTOR [-1.0, +1.0]</span>
-                            <span class="pane-val" id="val-vector">X: +0.00 | Y: +0.00</span>
-                        </div>
-                        <div class="interactive-zone">
-                            <div class="reticle-boundary" id="reticle-boundary">
-                                <div class="crosshair-h"></div>
-                                <div class="crosshair-v"></div>
-                                <div class="ring-dashed"></div>
-                                <canvas id="vector-canvas"></canvas>
-                                <div class="reticle-puck" id="reticle-puck">
-                                    <div class="puck-dot"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="pane-header" style="margin-top: 8px; margin-bottom: 0;">
-                            <span>60Hz VECTOR TRACER</span>
-                            <span class="pane-val" style="color: var(--status-cyan);">DESKTOP: [W][A][S][D]</span>
-                        </div>
-                    </div>
+        <!-- Role Tier Selector -->
+        <nav class="role-bar">
+          <button class="role-btn is-active" data-role="performer">01 // PERFORMER</button>
+          <button class="role-btn" data-role="master">02 // MASTER CONSOLE</button>
+          <button class="role-btn" data-role="audience">03 // AUDIENCE</button>
+        </nav>
 
-                    <!-- Right / Lower: Actions & Macro -->
-                    <div class="actions-pane">
-                        <div class="pane-header">
-                            <span>ACTION MATRIX</span>
-                            <span class="hud-badge cyan" id="badge-ml-action">AI: READY</span>
-                        </div>
-
-                        <div class="triggers-grid">
-                            <button class="mono-trigger" id="trig-1">
-                                <span class="trigger-title">ACTION 1</span>
-                                <span class="trigger-sub">PRIMARY (1 / A)</span>
-                            </button>
-                            <button class="mono-trigger" id="trig-2">
-                                <span class="trigger-title">ACTION 2</span>
-                                <span class="trigger-sub">ALT (2 / B)</span>
-                            </button>
-                            <button class="mono-trigger" id="trig-3">
-                                <span class="trigger-title">TRIGGER</span>
-                                <span class="trigger-sub">PULSE (3 / X)</span>
-                            </button>
-                            <button class="mono-trigger" id="trig-4">
-                                <span class="trigger-title">FLASH</span>
-                                <span class="trigger-sub">STROBE (4 / Y)</span>
-                            </button>
-                        </div>
-
-                        <!-- Macro / Chaos Slider -->
-                        <div class="macro-module">
-                            <div class="macro-header">
-                                <span id="macro-title">CHAOS / MACRO (S1)</span>
-                                <span class="pane-val" id="macro-val">50%</span>
-                            </div>
-                            <input type="range" min="0" max="100" value="50" class="macro-range" id="macro-slider">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Surface 02: Latent XY Kaoss Pad -->
-                <div class="controller-workspace" id="surface-kaoss" style="display: none;">
-                    <div class="kaoss-surface" id="kaoss-pad">
-                        <div class="kaoss-grid-lines"></div>
-                        <div class="kaoss-crosshair-reticle" id="kaoss-reticle"></div>
-                        <div style="position: absolute; top: 12px; left: 14px; font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.1em; color: var(--text-dim);">
-                            LATENT SPACE CONTINUOUS MODULATOR // DRAG ANYWHERE
-                        </div>
-                        <div style="position: absolute; bottom: 12px; right: 14px; font-family: var(--font-mono); font-size: 0.75rem; color: var(--status-cyan); font-weight: 700;" id="kaoss-coords">
-                            U: 0.500 | V: 0.500
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Surface 03: VJ Fader Mixer -->
-                <div class="controller-workspace" id="surface-mixer" style="display: none;">
-                    <div class="mixer-surface">
-                        <!-- CH 1 -->
-                        <div class="mixer-channel">
-                            <span class="channel-label">CH 01</span>
-                            <div class="fader-track-vertical" data-ch="1">
-                                <div class="fader-fill" style="height: 80%;"></div>
-                            </div>
-                            <span class="channel-val">80%</span>
-                            <button class="channel-kill-btn">MUTE</button>
-                        </div>
-                        <!-- CH 2 -->
-                        <div class="mixer-channel">
-                            <span class="channel-label">CH 02</span>
-                            <div class="fader-track-vertical" data-ch="2">
-                                <div class="fader-fill" style="height: 45%;"></div>
-                            </div>
-                            <span class="channel-val">45%</span>
-                            <button class="channel-kill-btn">MUTE</button>
-                        </div>
-                        <!-- CH 3 -->
-                        <div class="mixer-channel">
-                            <span class="channel-label">CH 03</span>
-                            <div class="fader-track-vertical" data-ch="3">
-                                <div class="fader-fill" style="height: 60%;"></div>
-                            </div>
-                            <span class="channel-val">60%</span>
-                            <button class="channel-kill-btn">MUTE</button>
-                        </div>
-                        <!-- CH 4 (Master) -->
-                        <div class="mixer-channel">
-                            <span class="channel-label">MASTER</span>
-                            <div class="fader-track-vertical" data-ch="4">
-                                <div class="fader-fill" style="height: 95%;"></div>
-                            </div>
-                            <span class="channel-val">95%</span>
-                            <button class="channel-kill-btn">STROBE</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAULT 1: SEGMENTED LOADING MODAL -->
-                <div class="overlay-modal" id="modal-loading">
-                    <div class="modal-card">
-                        <div class="modal-header">
-                            <h2>ESTABLISHING STAGE LINK</h2>
-                        </div>
-                        <div class="modal-telemetry" id="loading-telemetry">PROTOCOL: UDP 9000 // RESERVING SLOT...</div>
-                        <div class="progress-block-track">
-                            <div class="progress-segment filled"></div>
-                            <div class="progress-segment filled"></div>
-                            <div class="progress-segment filled"></div>
-                            <div class="progress-segment filled"></div>
-                            <div class="progress-segment filled"></div>
-                            <div class="progress-segment filled"></div>
-                            <div class="progress-segment"></div>
-                            <div class="progress-segment"></div>
-                            <div class="progress-segment"></div>
-                            <div class="progress-segment"></div>
-                        </div>
-                        <div class="modal-telemetry" style="display: flex; justify-content: space-between;">
-                            <span>HANDSHAKE PROGRESS</span>
-                            <span style="color: var(--text-white); font-weight: 700;">60% SYNC</span>
-                        </div>
-                        <div class="modal-actions">
-                            <button class="modal-btn" id="btn-close-loading">CANCEL LINK</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAULT 2: SIGNAL LOSS & RECONNECT -->
-                <div class="overlay-modal" id="modal-disconnect">
-                    <div class="modal-card">
-                        <div class="modal-header danger">
-                            <h2>CRITICAL SIGNAL LOSS</h2>
-                        </div>
-                        <div class="modal-telemetry" style="color: var(--status-crimson);">
-                            WEBSOCKET PIPE TERMINATED // PACKET TIMEOUT
-                        </div>
-                        <div class="modal-telemetry" id="reconnect-countdown">
-                            AUTO-RECONNECTING IN 2.1s (ATTEMPT 1/5)...
-                        </div>
-                        <div class="modal-actions">
-                            <button class="modal-btn primary" id="btn-reconnect-now">FORCE RECONNECT</button>
-                            <button class="modal-btn" id="btn-close-disconnect">ABORT TO GATE</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAULT 3: EXIT CONFIRMATION DIALOG -->
-                <div class="overlay-modal" id="modal-exit">
-                    <div class="modal-card">
-                        <div class="modal-header">
-                            <h2>TERMINATE PERFORMANCE SESSION?</h2>
-                        </div>
-                        <div class="modal-telemetry">
-                            RELEASING SLOT #06 WILL CLEAR YOUR ACTIVE PARTICLES & FISH IN TOUCHDESIGNER.
-                        </div>
-                        <div class="modal-actions">
-                            <button class="modal-btn primary" id="btn-confirm-exit">CONFIRM DISCONNECT</button>
-                            <button class="modal-btn" id="btn-cancel-exit">CONTINUE PLAYING</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAULT 4: EMERGENCY CRASH BOUNDARY -->
-                <div class="overlay-modal" id="modal-crash">
-                    <div class="modal-card" style="border-color: var(--status-crimson);">
-                        <div class="modal-header danger">
-                            <h2>FATAL SYSTEM EXCEPTION</h2>
-                        </div>
-                        <div class="modal-telemetry">
-                            AN UNCAUGHT POINTER / GL CONTEXT FAULT OCCURRED:
-                        </div>
-                        <div class="trace-dump">
-[FATAL_RUNTIME_ERR]: WebGL context lost during drawElements() at VectorOscilloscope:42
-Stack Trace:
-  at renderTrail (app.ts:312)
-  at handleJoyMove (app.ts:184)
-  at HTMLDivElement.dispatch (touch.js:89)
-Status: Pointer locked; recovery buffer active.
-                        </div>
-                        <div class="modal-actions">
-                            <button class="modal-btn primary" id="btn-crash-reload">HOT RELOAD SURFACE</button>
-                            <button class="modal-btn" id="btn-crash-close">DISMISS</button>
-                        </div>
-                    </div>
-                </div>
-
+        <!-- ============================================================== -->
+        <!-- TIER 2: PERFORMER CONTROLLER (TOUCHDESIGNER SLOTS 6-100)       -->
+        <!-- ============================================================== -->
+        <div class="controller-workspace" id="role-performer">
+          <!-- Left: Vector Reticle & 60Hz Oscilloscope -->
+          <div class="workspace-pane">
+            <div class="pane-header">
+              <span>ANALOG RETICLE [X/Y]</span>
+              <span class="pane-val" id="val-vector">X: +0.00 | Y: +0.00</span>
             </div>
+            <div class="interactive-zone">
+              <div class="reticle-boundary" id="reticle-boundary">
+                <div class="crosshair-h"></div>
+                <div class="crosshair-v"></div>
+                <div class="ring-dashed"></div>
+                <canvas id="vector-canvas"></canvas>
+                <div class="reticle-puck" id="reticle-puck">
+                  <div class="puck-dot"></div>
+                </div>
+              </div>
+            </div>
+            <div class="pane-header" style="margin-top: 8px; margin-bottom: 0;">
+              <span>60Hz HARDWARE TRACER</span>
+              <span class="pane-val" style="color: var(--status-cyan);">DESKTOP: [W][A][S][D]</span>
+            </div>
+          </div>
+
+          <!-- Right: TouchDesigner Actions (b1..b4) & Dual Sliders (s1, s2) -->
+          <div class="actions-pane">
+            <div class="pane-header">
+              <span>TOUCHDESIGNER ACTIONS</span>
+              <span class="hud-badge cyan">SLOT #06 ACTIVE</span>
+            </div>
+
+            <!-- Exact TouchDesigner Blueprints -->
+            <div class="triggers-grid">
+              <button class="mono-trigger" id="btn-b1" data-id="b1">
+                <span class="trigger-title">ROTATE 360°</span>
+                <span class="trigger-sub">TRIGGER (b1 / 1)</span>
+              </button>
+              <button class="mono-trigger" id="btn-b2" data-id="b2">
+                <span class="trigger-title">COLOR SWAP</span>
+                <span class="trigger-sub">PALETTE (b2 / 2)</span>
+              </button>
+              <button class="mono-trigger" id="btn-b3" data-id="b3">
+                <span class="trigger-title">FEED FISH</span>
+                <span class="trigger-sub">PELLET (b3 / 3)</span>
+              </button>
+              <button class="mono-trigger" id="btn-b4" data-id="b4">
+                <span class="trigger-title">SPECIAL</span>
+                <span class="trigger-sub">SCARE (b4 / 4)</span>
+              </button>
+            </div>
+
+            <!-- Dual Sliders: s1 (Speed) and s2 (Size) -->
+            <div class="dual-sliders-wrap">
+              <!-- Slider s1: Speed -->
+              <div class="slider-box">
+                <div class="slider-label-row">
+                  <span>SWIM SPEED (s1)</span>
+                  <span class="pane-val" id="val-s1">50%</span>
+                </div>
+                <input type="range" min="0" max="100" value="50" class="mono-range" id="slider-s1">
+              </div>
+
+              <!-- Slider s2: Size / Scale -->
+              <div class="slider-box">
+                <div class="slider-label-row">
+                  <span>SCALE / SIZE (s2)</span>
+                  <span class="pane-val" id="val-s2">55%</span>
+                </div>
+                <input type="range" min="35" max="95" value="55" class="mono-range" id="slider-s2">
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- TYPOGRAPHY SYSTEM SPECIMENS -->
-        <section class="specimen-section">
-            <div class="specimen-header">
-                <h2>SWISS GRAPHIC MONOLITH // TYPOGRAPHY SYSTEM</h2>
-                <span class="sim-label">SPECIFICATION & SPECIMEN</span>
+        <!-- ============================================================== -->
+        <!-- TIER 1: MASTER OPERATOR CONSOLE (HOST PRIVILEGED ACCESS)       -->
+        <!-- ============================================================== -->
+        <div class="master-console" id="role-master" style="display: none;">
+          <div class="pane-header">
+            <span>FOH MASTER BROADCAST CONTROLLER</span>
+            <span class="hud-badge green">TOKEN: VERIFIED</span>
+          </div>
+
+          <div class="master-grid-2">
+            <!-- Global Scene Switcher -->
+            <div class="master-card">
+              <h3>GLOBAL SHOW SCENE</h3>
+              <div class="scene-select-grid">
+                <button class="scene-btn is-active" id="btn-scene-aqua">AQUARIUM</button>
+                <button class="scene-btn" id="btn-scene-canvas">CANVAS</button>
+                <button class="scene-btn" id="btn-scene-grid">KINETIC</button>
+              </div>
+              <p class="text-[11px] font-mono text-neutral-400">Pushes `/bridge/scene` OSC packet live to TouchDesigner.</p>
             </div>
 
-            <div class="specimen-grid">
-                <!-- Space Grotesk -->
-                <div class="specimen-card">
-                    <div class="font-name-tag">PRIMARY DISPLAY // SPACE GROTESK (700)</div>
-                    <div class="specimen-sample" style="font-family: 'Space Grotesk', sans-serif; font-weight: 700;">
-                        TDBRIDGE 60FPS
-                    </div>
-                    <div class="specimen-desc">
-                        Brutalist geometric grotesk with sharp angled terminals and technical uppercase characters. Built for headers, brand identity, and high-impact action triggers.
-                    </div>
-                </div>
-
-                <!-- Syne -->
-                <div class="specimen-card">
-                    <div class="font-name-tag">ARCHITECTURAL DISPLAY // SYNE (800)</div>
-                    <div class="specimen-sample" style="font-family: 'Syne', sans-serif; font-weight: 800; letter-spacing: -0.02em;">
-                        LATENT MATRIX
-                    </div>
-                    <div class="specimen-desc">
-                        Extra-bold architectural sans with radical proportion shifts. Ideal for exhibition hero titles, modal alerts, and avant-garde VJ branding.
-                    </div>
-                </div>
-
-                <!-- JetBrains Mono -->
-                <div class="specimen-card">
-                    <div class="font-name-tag">TELEMETRY & HUD // JETBRAINS MONO (500)</div>
-                    <div class="specimen-sample" style="font-family: 'JetBrains Mono', monospace; font-size: 1.125rem;">
-                        X: +0.72 | Y: -0.45 [60Hz]
-                    </div>
-                    <div class="specimen-desc">
-                        Fixed-pitch engineering monospaced typeface with slashed zero, distinct glyphs, and rigid tabular alignment. Vital for numerical coordinates and FPS clocks.
-                    </div>
-                </div>
+            <!-- Emergency Actions -->
+            <div class="master-card">
+              <h3>EMERGENCY CUES</h3>
+              <div class="flex gap-2">
+                <button class="sim-btn danger flex-1" id="btn-host-reset">RESET ENGINE</button>
+                <button class="sim-btn danger flex-1" id="btn-host-purge">PURGE SLOTS</button>
+              </div>
+              <p class="text-[11px] font-mono text-neutral-400">Clears lingering fish or re-initializes TouchDesigner simulation.</p>
             </div>
-        </section>
+          </div>
 
-    </main>
+          <!-- Active Players Roster Table -->
+          <div class="master-card">
+            <div class="flex justify-between items-center mb-1">
+              <h3>ACTIVE PERFORMER SLOTS</h3>
+              <span class="text-[11px] font-mono text-neutral-400">3 CONNECTED / 94 FREE</span>
+            </div>
+            <table class="roster-table">
+              <thead>
+                <tr>
+                  <th>SLOT</th>
+                  <th>IDENTIFIER</th>
+                  <th>COLOR</th>
+                  <th>RTT</th>
+                  <th>ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>#06</td>
+                  <td>NEMO_PILOT</td>
+                  <td><span class="inline-block w-2.5 h-2.5 bg-cyan-400"></span> #00F0FF</td>
+                  <td>14ms</td>
+                  <td><button class="text-red-400 font-bold hover:underline">KICK</button></td>
+                </tr>
+                <tr>
+                  <td>#07</td>
+                  <td>DORY_BUDDY</td>
+                  <td><span class="inline-block w-2.5 h-2.5 bg-pink-500"></span> #FF007F</td>
+                  <td>28ms</td>
+                  <td><button class="text-red-400 font-bold hover:underline">KICK</button></td>
+                </tr>
+                <tr>
+                  <td>#08</td>
+                  <td>MODEM_38</td>
+                  <td><span class="inline-block w-2.5 h-2.5 bg-amber-400"></span> #FFAA00</td>
+                  <td>19ms</td>
+                  <td><button class="text-red-400 font-bold hover:underline">KICK</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-    <!-- INTERACTIVE ENGINE & OSCILLOSCOPE LOGIC -->
-    <script>
-        // 1. Viewport Sim Switcher
-        const deviceWrapper = document.getElementById('device-wrapper');
-        document.getElementById('btn-view-phone').onclick = function() {
-            setDeviceView('phone', this);
-        };
-        document.getElementById('btn-view-tablet').onclick = function() {
-            setDeviceView('tablet', this);
-        };
-        document.getElementById('btn-view-desktop').onclick = function() {
-            setDeviceView('desktop', this);
-        };
+        <!-- ============================================================== -->
+        <!-- TIER 3: AUDIENCE SPECTATOR SURFACE                             -->
+        <!-- ============================================================== -->
+        <div class="audience-surface" id="role-audience" style="display: none;">
+          <div class="text-center">
+            <h2 class="text-lg font-bold">AUDIENCE HYPE & BEAT PULSE</h2>
+            <p class="text-xs font-mono text-neutral-400 mt-1">Zero slot consumption // Direct crowd energy stream</p>
+          </div>
 
-        function setDeviceView(mode, btn) {
-            document.querySelectorAll('.sim-btn').forEach(b => {
-                if (b.id.startsWith('btn-view')) b.classList.remove('is-active');
-            });
-            btn.classList.add('is-active');
-            deviceWrapper.className = `device-wrapper ${mode}`;
-            resizeCanvas();
+          <!-- BPM Tap Pulser -->
+          <button class="bpm-pulser" id="bpm-tap-btn">
+            <span class="bpm-val" id="bpm-display">128</span>
+            <span class="bpm-sub">TAP TO BEAT</span>
+          </button>
+
+          <!-- Crowd Reaction Matrix -->
+          <div class="reaction-grid">
+            <button class="reaction-btn" data-reaction="fire">
+              <span>🔥</span>
+              <span class="reaction-btn-label">IGNITE</span>
+            </button>
+            <button class="reaction-btn" data-reaction="bolt">
+              <span>⚡</span>
+              <span class="reaction-btn-label">STROBE</span>
+            </button>
+            <button class="reaction-btn" data-reaction="heart">
+              <span>❤️</span>
+              <span class="reaction-btn-label">CHORUS</span>
+            </button>
+            <button class="reaction-btn" data-reaction="party">
+              <span>🎉</span>
+              <span class="reaction-btn-label">BURST</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- EXTENSIBLE SWISS COMPONENT DESIGN CATALOG                      -->
+    <!-- ============================================================== -->
+    <section class="catalog-section">
+      <div class="flex justify-between items-baseline border-b-2 border-white pb-3 mb-4">
+        <h2 class="text-lg font-bold font-mono">SWISS COMPONENT CATALOG // EXTENSIBLE DESIGN ATOMS</h2>
+        <span class="text-xs font-mono text-neutral-400">PRODUCTION LIBRARY</span>
+      </div>
+
+      <div class="catalog-grid">
+        <!-- 1. Rotary Stepper Dial -->
+        <div class="catalog-item">
+          <div class="catalog-title">01 // ROTARY STEPPER DIAL (.mono-dial)</div>
+          <div class="dial-wrap">
+            <div class="mono-dial" id="sample-dial">
+              <div class="dial-needle" id="sample-needle"></div>
+            </div>
+            <span class="font-mono text-xs font-bold" id="dial-readout">CUTOFF: 4.8 kHz</span>
+          </div>
+          <p class="text-[11px] font-mono text-neutral-400">Continuous 270° rotary dial for filter cutoffs, rotary angle, or camera heading.</p>
+        </div>
+
+        <!-- 2. VU Peak Level Meter -->
+        <div class="catalog-item">
+          <div class="catalog-title">02 // 12-SEGMENT VU METER (.mono-vu-fader)</div>
+          <div class="vu-meter-row" id="sample-vu">
+            <div class="vu-bar lit"></div>
+            <div class="vu-bar lit"></div>
+            <div class="vu-bar lit"></div>
+            <div class="vu-bar lit"></div>
+            <div class="vu-bar lit"></div>
+            <div class="vu-bar lit"></div>
+            <div class="vu-bar lit warn"></div>
+            <div class="vu-bar lit warn"></div>
+            <div class="vu-bar"></div>
+            <div class="vu-bar"></div>
+            <div class="vu-bar"></div>
+            <div class="vu-bar"></div>
+          </div>
+          <div class="flex justify-between font-mono text-xs">
+            <span class="text-neutral-400">AUDIO INGEST</span>
+            <span class="font-bold text-emerald-400">-6.2 dB</span>
+          </div>
+          <p class="text-[11px] font-mono text-neutral-400">Hardware LED level monitor reflecting microphone/music energy.</p>
+        </div>
+
+        <!-- 3. 3-Way Segmented Switch -->
+        <div class="catalog-item">
+          <div class="catalog-title">03 // SEGMENTED TOGGLE (.mono-toggle)</div>
+          <div class="mono-toggle-group">
+            <button class="mono-toggle-btn is-active">OFF</button>
+            <button class="mono-toggle-btn">MOMENTARY</button>
+            <button class="mono-toggle-btn">LATCH</button>
+          </div>
+          <p class="text-[11px] font-mono text-neutral-400">Discrete tri-state switch for lighting gates and trigger behaviors.</p>
+        </div>
+
+        <!-- 4. Tactile Binary Inversion Button -->
+        <div class="catalog-item">
+          <div class="catalog-title">04 // BINARY INVERSION TRIGGER (.mono-trigger)</div>
+          <button class="mono-trigger w-full" style="min-height: 52px;">
+            <span class="trigger-title text-sm">PRESS TO INVERT</span>
+            <span class="trigger-sub">TACTILE SHUTTER</span>
+          </button>
+          <p class="text-[11px] font-mono text-neutral-400">Binary instant color flip (`#000` <-> `#fff`) with 60ms spring return.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- JAVASCRIPT ENGINE & INTERACTIONS -->
+  <script>
+    // 1. Viewport Switcher
+    const deviceWrapper = document.getElementById('device-wrapper');
+    document.getElementById('btn-view-phone').onclick = function() { setView('phone', this); };
+    document.getElementById('btn-view-tablet').onclick = function() { setView('tablet', this); };
+    document.getElementById('btn-view-desktop').onclick = function() { setView('desktop', this); };
+
+    function setView(mode, btn) {
+      document.querySelectorAll('.sim-btn').forEach(b => {
+        if (b.id.startsWith('btn-view')) b.classList.remove('is-active');
+      });
+      btn.classList.add('is-active');
+      deviceWrapper.className = `device-wrapper ${mode}`;
+      resizeCanvas();
+    }
+
+    // 2. Role Tier Switcher
+    const roleBtns = document.querySelectorAll('.role-btn');
+    const rolePerformer = document.getElementById('role-performer');
+    const roleMaster = document.getElementById('role-master');
+    const roleAudience = document.getElementById('role-audience');
+    const simRoleTag = document.getElementById('sim-role-tag');
+
+    roleBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        roleBtns.forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        const r = btn.getAttribute('data-role');
+        rolePerformer.style.display = r === 'performer' ? 'flex' : 'none';
+        roleMaster.style.display = r === 'master' ? 'flex' : 'none';
+        roleAudience.style.display = r === 'audience' ? 'flex' : 'none';
+        simRoleTag.innerText = `ROLE: ${r.toUpperCase()}`;
+        if (r === 'performer') resizeCanvas();
+      });
+    });
+
+    // 3. Real-Time RTT Ping Simulator
+    const simRttTag = document.getElementById('sim-rtt-tag');
+    const screenRttHud = document.getElementById('screen-rtt-hud');
+
+    document.getElementById('btn-rtt-low').onclick = function() {
+      setRtt('14ms // SYNC', 'green', this);
+    };
+    document.getElementById('btn-rtt-med').onclick = function() {
+      setRtt('68ms // WI-FI', 'amber', this);
+    };
+    document.getElementById('btn-rtt-drop').onclick = function() {
+      setRtt('TIMEOUT // LOSS', 'crimson', this);
+    };
+
+    function setRtt(text, color, btn) {
+      document.querySelectorAll('.sim-btn').forEach(b => {
+        if (b.id.startsWith('btn-rtt')) b.classList.remove('is-active');
+      });
+      btn.classList.add('is-active');
+      simRttTag.innerText = `LINK: ${text}`;
+      simRttTag.className = `hud-badge ${color}`;
+      screenRttHud.innerText = `RTT: ${text}`;
+      screenRttHud.className = `hud-badge ${color}`;
+    }
+
+    // 4. Analog Reticle & Oscilloscope Tracer
+    const canvas = document.getElementById('vector-canvas');
+    const ctx = canvas.getContext('2d');
+    const reticleBoundary = document.getElementById('reticle-boundary');
+    const reticlePuck = document.getElementById('reticle-puck');
+    const valVector = document.getElementById('val-vector');
+
+    let joyX = 0, joyY = 0;
+    let isDragging = false;
+    const trailBuffer = [];
+
+    function resizeCanvas() {
+      if (!reticleBoundary || !canvas) return;
+      const rect = reticleBoundary.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 50);
+
+    function handleJoy(e) {
+      const rect = reticleBoundary.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      let dx = e.clientX - cx;
+      let dy = e.clientY - cy;
+      const maxR = rect.width / 2 - 28;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > maxR) {
+        dx = (dx / dist) * maxR;
+        dy = (dy / dist) * maxR;
+      }
+
+      reticlePuck.style.transform = `translate(${dx}px, ${dy}px)`;
+      joyX = dx / maxR;
+      joyY = -dy / maxR;
+
+      valVector.innerText = `X: ${(joyX >= 0 ? '+' : '') + joyX.toFixed(2)} | Y: ${(joyY >= 0 ? '+' : '') + joyY.toFixed(2)}`;
+      trailBuffer.push({ x: rect.width / 2 + dx, y: rect.height / 2 + dy });
+      if (trailBuffer.length > 24) trailBuffer.shift();
+    }
+
+    reticleBoundary.addEventListener('pointerdown', e => {
+      isDragging = true;
+      reticleBoundary.setPointerCapture(e.pointerId);
+      handleJoy(e);
+    });
+    reticleBoundary.addEventListener('pointermove', e => {
+      if (isDragging) handleJoy(e);
+    });
+    const releaseJoy = () => {
+      isDragging = false;
+      joyX = 0; joyY = 0;
+      reticlePuck.style.transform = `translate(0px, 0px)`;
+      valVector.innerText = `X: +0.00 | Y: +0.00`;
+    };
+    reticleBoundary.addEventListener('pointerup', releaseJoy);
+    reticleBoundary.addEventListener('pointercancel', releaseJoy);
+
+    function renderOsc() {
+      if (canvas && ctx && rolePerformer.style.display !== 'none') {
+        const rect = reticleBoundary.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        if (!isDragging && trailBuffer.length > 0) trailBuffer.shift();
+        if (trailBuffer.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(trailBuffer[0].x, trailBuffer[0].y);
+          for (let i = 1; i < trailBuffer.length; i++) ctx.lineTo(trailBuffer[i].x, trailBuffer[i].y);
+          ctx.strokeStyle = '#00e5ff';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          const head = trailBuffer[trailBuffer.length - 1];
+          ctx.beginPath();
+          ctx.arc(head.x, head.y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
         }
+      }
+      requestAnimationFrame(renderOsc);
+    }
+    requestAnimationFrame(renderOsc);
 
-        // 2. Archetype Surface Tabs
-        const tabBtns = document.querySelectorAll('.tab-btn');
-        const surfaceGamepad = document.getElementById('surface-gamepad');
-        const surfaceKaoss = document.getElementById('surface-kaoss');
-        const surfaceMixer = document.getElementById('surface-mixer');
+    // 5. Dual Sliders: s1 (Speed) & s2 (Size)
+    const sliderS1 = document.getElementById('slider-s1');
+    const valS1 = document.getElementById('val-s1');
+    sliderS1.oninput = () => { valS1.innerText = `${sliderS1.value}%`; };
 
-        tabBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                tabBtns.forEach(b => b.classList.remove('is-active'));
-                btn.classList.add('is-active');
-                const surf = btn.getAttribute('data-surface');
-                surfaceGamepad.style.display = surf === 'gamepad' ? 'flex' : 'none';
-                surfaceKaoss.style.display = surf === 'kaoss' ? 'flex' : 'none';
-                surfaceMixer.style.display = surf === 'mixer' ? 'flex' : 'none';
-                if (surf === 'gamepad') resizeCanvas();
-            });
-        });
+    const sliderS2 = document.getElementById('slider-s2');
+    const valS2 = document.getElementById('val-s2');
+    sliderS2.oninput = () => { valS2.innerText = `${sliderS2.value}%`; };
 
-        // 3. Generative Machine Learning States
-        const ML_STATES = [
-            { name: 'INFERENCE', badge: '60.0 FPS // LIVE', color: 'cyan', engineClass: 'green' },
-            { name: 'LATENT LOCK', badge: 'SEED #8942 // FROZEN', color: 'amber', engineClass: 'amber' },
-            { name: 'STYLE MORPH', badge: 'LORA: NEON-BRUTAL 65%', color: 'cyan', engineClass: 'cyan' },
-            { name: 'HIGH ENTROPY', badge: 'CHAOS 92% // BREAKDOWN', color: 'crimson', engineClass: 'crimson' },
-            { name: 'STANDBY', badge: 'BYPASS // PASSTHROUGH', color: 'dim', engineClass: 'dim' },
-        ];
-        let currentMlIdx = 0;
-        const btnMlCycle = document.getElementById('btn-ml-cycle');
-        const mlStateName = document.getElementById('ml-state-name');
-        const simMlTag = document.getElementById('sim-ml-tag');
-        const badgeMlAction = document.getElementById('badge-ml-action');
+    // 6. Action Triggers
+    document.querySelectorAll('.mono-trigger').forEach(btn => {
+      btn.addEventListener('pointerdown', () => btn.classList.add('is-active'));
+      btn.addEventListener('pointerup', () => btn.classList.remove('is-active'));
+      btn.addEventListener('pointercancel', () => btn.classList.remove('is-active'));
+    });
 
-        btnMlCycle.onclick = () => {
-            currentMlIdx = (currentMlIdx + 1) % ML_STATES.length;
-            const st = ML_STATES[currentMlIdx];
-            mlStateName.innerText = st.name;
-            simMlTag.innerText = `ML: ${st.name}`;
-            simMlTag.className = `hud-badge ${st.color}`;
-            badgeMlAction.innerText = `AI: ${st.name}`;
-            badgeMlAction.className = `hud-badge ${st.color}`;
-        };
+    // 7. Master Console Scene Buttons
+    const sceneBtns = [document.getElementById('btn-scene-aqua'), document.getElementById('btn-scene-canvas'), document.getElementById('btn-scene-grid')];
+    sceneBtns.forEach(btn => {
+      btn.onclick = () => {
+        sceneBtns.forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+      };
+    });
 
-        // 4. Fault Simulator Modals
-        const modalLoading = document.getElementById('modal-loading');
-        const modalDisconnect = document.getElementById('modal-disconnect');
-        const modalExit = document.getElementById('modal-exit');
-        const modalCrash = document.getElementById('modal-crash');
-        const screenEngineHud = document.getElementById('screen-engine-hud');
-
-        document.getElementById('btn-fault-loading').onclick = () => modalLoading.style.display = 'flex';
-        document.getElementById('btn-close-loading').onclick = () => modalLoading.style.display = 'none';
-
-        document.getElementById('btn-fault-disconnect').onclick = () => modalDisconnect.style.display = 'flex';
-        document.getElementById('btn-close-disconnect').onclick = () => modalDisconnect.style.display = 'none';
-        document.getElementById('btn-reconnect-now').onclick = () => {
-            document.getElementById('reconnect-countdown').innerText = 'HANDSHAKE RE-ESTABLISHED // SLOT #06';
-            setTimeout(() => modalDisconnect.style.display = 'none', 600);
-        };
-
-        document.getElementById('btn-fault-cook').onclick = () => {
-            const isLag = screenEngineHud.innerText.includes('WARNING');
-            if (isLag) {
-                screenEngineHud.innerText = '60.0 FPS // LINKED';
-                screenEngineHud.className = 'hud-badge';
-            } else {
-                screenEngineHud.innerText = 'WARNING // 24.2 FPS // TD HIGH COOK';
-                screenEngineHud.className = 'hud-badge crimson';
-            }
-        };
-
-        document.getElementById('btn-fault-exit').onclick = () => modalExit.style.display = 'flex';
-        document.getElementById('screen-exit-trigger').onclick = () => modalExit.style.display = 'flex';
-        document.getElementById('btn-cancel-exit').onclick = () => modalExit.style.display = 'none';
-        document.getElementById('btn-confirm-exit').onclick = () => {
-            modalExit.style.display = 'none';
-            alert('SESSION TERMINATED. RETURNED TO ONBOARDING GATE.');
-        };
-
-        document.getElementById('btn-fault-crash').onclick = () => modalCrash.style.display = 'flex';
-        document.getElementById('btn-crash-close').onclick = () => modalCrash.style.display = 'none';
-        document.getElementById('btn-crash-reload').onclick = () => location.reload();
-
-        // 5. 60Hz Vector Oscilloscope Canvas & Reticle Tracking
-        const canvas = document.getElementById('vector-canvas');
-        const ctx = canvas.getContext('2d');
-        const reticleBoundary = document.getElementById('reticle-boundary');
-        const reticlePuck = document.getElementById('reticle-puck');
-        const valVector = document.getElementById('val-vector');
-
-        let joyX = 0, joyY = 0;
-        let isDragging = false;
-        const trailBuffer = [];
-        const MAX_TRAIL = 24;
-
-        function resizeCanvas() {
-            if (!reticleBoundary || !canvas) return;
-            const rect = reticleBoundary.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            ctx.scale(dpr, dpr);
+    // 8. Audience BPM Tap Calculator
+    let lastTapTime = 0;
+    const tapIntervals = [];
+    const bpmDisplay = document.getElementById('bpm-display');
+    document.getElementById('bpm-tap-btn').onclick = () => {
+      const now = performance.now();
+      if (lastTapTime > 0) {
+        const delta = now - lastTapTime;
+        if (delta > 200 && delta < 2000) {
+          tapIntervals.push(delta);
+          if (tapIntervals.length > 5) tapIntervals.shift();
+          const avg = tapIntervals.reduce((a, b) => a + b, 0) / tapIntervals.length;
+          const bpm = Math.round(60000 / avg);
+          bpmDisplay.innerText = bpm;
         }
-        window.addEventListener('resize', resizeCanvas);
-        setTimeout(resizeCanvas, 50);
+      }
+      lastTapTime = now;
+    };
 
-        function handlePointer(e) {
-            const rect = reticleBoundary.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            let dx = e.clientX - cx;
-            let dy = e.clientY - cy;
-            const maxR = rect.width / 2 - 28;
-            const dist = Math.hypot(dx, dy);
+    // 9. Rotary Dial Interactive Drag
+    const dial = document.getElementById('sample-dial');
+    const needle = document.getElementById('sample-needle');
+    const dialReadout = document.getElementById('dial-readout');
+    let dialAngle = -45;
+    let isDialDrag = false;
 
-            if (dist > maxR) {
-                dx = (dx / dist) * maxR;
-                dy = (dy / dist) * maxR;
-            }
+    dial.addEventListener('pointerdown', e => {
+      isDialDrag = true;
+      dial.setPointerCapture(e.pointerId);
+    });
+    dial.addEventListener('pointermove', e => {
+      if (!isDialDrag) return;
+      const rect = dial.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const rad = Math.atan2(e.clientY - cy, e.clientX - cx);
+      dialAngle = (rad * 180 / Math.PI) + 90;
+      needle.style.transform = `rotate(${dialAngle}deg)`;
+      const freq = (Math.abs(dialAngle) * 35 + 200).toFixed(0);
+      dialReadout.innerText = `CUTOFF: ${freq} Hz`;
+    });
+    const releaseDial = () => { isDialDrag = false; };
+    dial.addEventListener('pointerup', releaseDial);
+    dial.addEventListener('pointercancel', releaseDial);
 
-            reticlePuck.style.transform = `translate(${dx}px, ${dy}px)`;
-            joyX = dx / maxR;
-            joyY = -dy / maxR;
-
-            valVector.innerText = `X: ${(joyX >= 0 ? '+' : '') + joyX.toFixed(2)} | Y: ${(joyY >= 0 ? '+' : '') + joyY.toFixed(2)}`;
-            trailBuffer.push({ x: rect.width / 2 + dx, y: rect.height / 2 + dy });
-            if (trailBuffer.length > MAX_TRAIL) trailBuffer.shift();
-        }
-
-        reticleBoundary.addEventListener('pointerdown', e => {
-            isDragging = true;
-            reticleBoundary.setPointerCapture(e.pointerId);
-            handlePointer(e);
-        });
-
-        reticleBoundary.addEventListener('pointermove', e => {
-            if (!isDragging) return;
-            handlePointer(e);
-        });
-
-        const releasePointer = () => {
-            isDragging = false;
-            joyX = 0;
-            joyY = 0;
-            reticlePuck.style.transform = `translate(0px, 0px)`;
-            valVector.innerText = `X: +0.00 | Y: +0.00`;
-        };
-
-        reticleBoundary.addEventListener('pointerup', releasePointer);
-        reticleBoundary.addEventListener('pointercancel', releasePointer);
-
-        // Oscilloscope Animation Loop
-        function renderOscilloscope() {
-            if (canvas && ctx && surfaceGamepad.style.display !== 'none') {
-                const rect = reticleBoundary.getBoundingClientRect();
-                ctx.clearRect(0, 0, rect.width, rect.height);
-
-                if (!isDragging && trailBuffer.length > 0) {
-                    trailBuffer.shift(); // decay trail when released
-                }
-
-                if (trailBuffer.length > 1) {
-                    ctx.beginPath();
-                    ctx.moveTo(trailBuffer[0].x, trailBuffer[0].y);
-                    for (let i = 1; i < trailBuffer.length; i++) {
-                        ctx.lineTo(trailBuffer[i].x, trailBuffer[i].y);
-                    }
-                    ctx.strokeStyle = '#00e5ff';
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
-
-                    // Lead particle dot
-                    const head = trailBuffer[trailBuffer.length - 1];
-                    ctx.beginPath();
-                    ctx.arc(head.x, head.y, 3, 0, Math.PI * 2);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fill();
-                }
-            }
-            requestAnimationFrame(renderOscilloscope);
-        }
-        requestAnimationFrame(renderOscilloscope);
-
-        // 6. Tactile Inversion on Buttons & Macro Slider
-        document.querySelectorAll('.mono-trigger').forEach(btn => {
-            btn.addEventListener('pointerdown', () => btn.classList.add('is-active'));
-            btn.addEventListener('pointerup', () => btn.classList.remove('is-active'));
-            btn.addEventListener('pointercancel', () => btn.classList.remove('is-active'));
-        });
-
-        const macroSlider = document.getElementById('macro-slider');
-        const macroVal = document.getElementById('macro-val');
-        macroSlider.oninput = () => {
-            macroVal.innerText = `${macroSlider.value}%`;
-        };
-
-        // 7. Latent XY Kaoss Interaction
-        const kaossPad = document.getElementById('kaoss-pad');
-        const kaossReticle = document.getElementById('kaoss-reticle');
-        const kaossCoords = document.getElementById('kaoss-coords');
-        kaossPad.addEventListener('pointermove', e => {
-            const rect = kaossPad.getBoundingClientRect();
-            const u = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-            const v = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-            kaossReticle.style.left = `${u * 100}%`;
-            kaossReticle.style.top = `${v * 100}%`;
-            kaossCoords.innerText = `U: ${u.toFixed(3)} | V: ${(1 - v).toFixed(3)}`;
-        });
-
-        // 8. Mixer Faders Interaction
-        document.querySelectorAll('.fader-track-vertical').forEach(track => {
-            track.addEventListener('pointerdown', e => handleFader(e, track));
-            track.addEventListener('pointermove', e => {
-                if (e.buttons > 0) handleFader(e, track);
-            });
-        });
-
-        function handleFader(e, track) {
-            const rect = track.getBoundingClientRect();
-            const pct = Math.max(0, Math.min(100, Math.round(((rect.bottom - e.clientY) / rect.height) * 100)));
-            const fill = track.querySelector('.fader-fill');
-            const valLabel = track.parentElement.querySelector('.channel-val');
-            if (fill) fill.style.height = `${pct}%`;
-            if (valLabel) valLabel.innerText = `${pct}%`;
-        }
-
-        document.querySelectorAll('.channel-kill-btn').forEach(btn => {
-            btn.onclick = () => btn.classList.toggle('is-muted');
-        });
-    </script>
+    // 10. Segmented Toggle Interaction
+    document.querySelectorAll('.mono-toggle-btn').forEach(btn => {
+      btn.onclick = () => {
+        btn.parentElement.querySelectorAll('.mono-toggle-btn').forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+      };
+    });
+  </script>
 </body>
 </html>
