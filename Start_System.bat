@@ -38,11 +38,19 @@ if not exist "node_modules\" (
 
 :: --- Step 3: Network Port & Process Hygiene ---
 echo [CHECK] Cleaning stale background processes & ports...
+if exist ".relay.pid" (
+    set /p OLD_PID=<.relay.pid
+    if defined OLD_PID (
+        taskkill /F /T /PID !OLD_PID! >nul 2>&1
+        echo   - Terminated previous relay process tree ^(PID !OLD_PID!^)
+    )
+    del /f /q .relay.pid >nul 2>&1
+)
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8080 " ^| findstr "LISTENING"') do (
     taskkill /F /PID %%a >nul 2>&1
     echo   - Cleared stale TCP port 8080 ^(PID %%a^)
 )
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":9001 "') do (
+for /f "tokens=4" %%a in ('netstat -aon ^| findstr ":9001 "') do (
     taskkill /F /PID %%a >nul 2>&1
     echo   - Cleared stale UDP port 9001 ^(PID %%a^)
 )

@@ -3,7 +3,7 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import * as readline from 'readline';
 // @ts-ignore
 import osc from 'osc';
@@ -14,6 +14,24 @@ import { BUILTIN_PROFILES, sanitizeBlueprint, ControlItem } from './profiles';
 const WS_PORT = 8080;
 const OSC_PORT = 9000;
 const MAX_USERS = 100;
+
+// Mutex Lockfile & Stale PID Recovery
+const PID_FILE = path.join(__dirname, '../.relay.pid');
+try {
+    if (fs.existsSync(PID_FILE)) {
+        const oldPidStr = fs.readFileSync(PID_FILE, 'utf-8').trim();
+        const oldPid = parseInt(oldPidStr, 10);
+        if (!isNaN(oldPid) && oldPid > 0 && oldPid !== process.pid) {
+            try {
+                process.kill(oldPid, 0); // test if process is alive
+                spawnSync('taskkill', ['/F', '/T', '/PID', String(oldPid)], { stdio: 'ignore' });
+            } catch (e) {
+                // Stale lockfile, process is dead
+            }
+        }
+    }
+    fs.writeFileSync(PID_FILE, String(process.pid));
+} catch (e) {}
 
 const app = express();
 app.use(express.json());
@@ -33,6 +51,63 @@ app.get('/branding', (req, res) => {
 });
 app.get('/room', (req, res) => {
     res.json({ room: ACTIVE_ROOM_CODE });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', uptime: Math.round(process.uptime()), room: ACTIVE_ROOM_CODE });
+});
+
+// Unified Machine-Readable Telemetry API with Tunnel Security Guard
+app.get('/telemetry', (req, res) => {
+    const clientIp = req.socket.remoteAddress || '';
+    const isLocal = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1';
+    const token = req.query.token || req.headers['x-master-token'];
+    
+    // Guard: public requests over tunnel require master token or active room code
+    if (!isLocal && token !== 'MASTER_KEY' && token !== ACTIVE_ROOM_CODE) {
+        res.status(401).json({ error: 'Unauthorized: Telemetry requires ?token=MASTER_KEY or ?token=' + ACTIVE_ROOM_CODE + ' over public network' });
+        return;
+    }
+
+    const mem = process.memoryUsage();
+    const isTdConnected = (Date.now() - tdLastSeen < 3500) && (tdLastSeen > 0);
+    const activePerformers = slots.filter(s => s.ws !== null && s.isJoined && s.role === 'performer').length;
+
+    res.json({
+        system: {
+            status: isTdConnected ? 'healthy' : 'degraded',
+            uptime_seconds: Math.round(process.uptime()),
+            pid: process.pid,
+            memory_rss_mb: Math.round(mem.rss / 1024 / 1024 * 10) / 10,
+            active_profile: currentProfile,
+            room_code: ACTIVE_ROOM_CODE
+        },
+        ports: {
+            http_ws_port: WS_PORT,
+            osc_remote_port: OSC_PORT,
+            osc_local_port: 9001,
+            is_listening: server.listening
+        },
+        touchdesigner: {
+            is_connected: isTdConnected,
+            cook_fps: parseFloat(tdFPS) || 0.0,
+            last_heartbeat_ms_ago: tdLastSeen > 0 ? Date.now() - tdLastSeen : null,
+            allocated_clones: tdClones,
+            total_errors_count: tdErrors,
+            last_error: lastErrorMsg || null,
+            loopback_latency_ms: tdLoopbackLatency
+        },
+        network: {
+            tunnel_status: cloudflareUrl ? 'live' : 'local_only',
+            public_url: cloudflareUrl || `http://127.0.0.1:${WS_PORT}`,
+            total_connected_sockets: slots.filter(s => s.ws !== null).length + audienceSockets.size,
+            performers_active: activePerformers,
+            audience_spectators: audienceSockets.size,
+            average_client_rtt_ms: computeAverageRtt()
+        },
+        recent_events: eventLogRingBuffer.slice(-50)
+    });
 });
 
 // Profile REST APIs
@@ -87,8 +162,31 @@ let lastErrorMsg = '';
 let lastErrorTime = 0;
 let tdLastSeen = 0;
 let tdClones = 0;
+let tdLoopbackLatency = 0;
 let currentProfile = 'gamepad';
 let activeBlueprint: ControlItem[] = BUILTIN_PROFILES.gamepad.blueprint;
+
+// Client RTT Tracking
+const clientRtts: Map<WebSocket, number> = new Map();
+function computeAverageRtt(): number {
+    if (clientRtts.size === 0) return 0;
+    let sum = 0;
+    for (const rtt of clientRtts.values()) sum += rtt;
+    return Math.round((sum / clientRtts.size) * 10) / 10;
+}
+
+// 50-Item Event Log Ring Buffer
+interface EventLogItem {
+    timestamp: string;
+    level: 'INFO' | 'WARN' | 'ERROR' | 'DISCONNECT';
+    message: string;
+}
+const eventLogRingBuffer: EventLogItem[] = [];
+function recordEvent(level: 'INFO' | 'WARN' | 'ERROR' | 'DISCONNECT', message: string) {
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+    eventLogRingBuffer.push({ timestamp, level, message });
+    if (eventLogRingBuffer.length > 50) eventLogRingBuffer.shift();
+}
 
 const LOG_FILE_PATH = path.join(__dirname, '../scratch_debug/error_log.txt');
 try {
@@ -100,6 +198,11 @@ const logs: string[] = [];
 function addLog(msg: string) {
     const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
     const formattedMsg = `[${timestamp}] ${msg}`;
+    const level: 'INFO' | 'WARN' | 'ERROR' | 'DISCONNECT' = 
+        msg.includes('ERROR') || msg.includes('FATAL') ? 'ERROR' :
+        msg.includes('DISCONNECT') || msg.includes('left') ? 'DISCONNECT' :
+        msg.includes('WARN') || msg.includes('TIMEOUT') ? 'WARN' : 'INFO';
+    recordEvent(level, msg);
     
     if (msg.includes('ERROR') || msg.includes('FATAL')) {
         const dateStamp = new Date().toLocaleDateString('en-US');
@@ -197,6 +300,11 @@ udpPort.on("message", (oscMsg: any) => {
             }
         } else if (oscMsg.address === "/td/clones") {
             tdClones = Number(val || 0);
+        } else if (oscMsg.address === "/td/pong") {
+            const t1 = Number(val || 0);
+            if (t1 > 0) {
+                tdLoopbackLatency = Math.max(0, Date.now() - t1);
+            }
         } else if (oscMsg.address === "/td/error") {
             const rawMsg = String(val ?? '(unknown error)');
             if (!rawMsg || rawMsg === '' || rawMsg.includes('Cook dependency loop')) return;
@@ -273,15 +381,15 @@ cf.stderr.on('data', (data) => {
     if (match) {
         cloudflareUrl = "https://" + match[1];
         addLog(`[NETWORK] Tunnel established at ${cloudflareUrl}`);
+        try {
+            udpPort.send({ address: '/bridge/tunnel', args: [{ type: 's', value: cloudflareUrl }] }, "127.0.0.1", OSC_PORT);
+        } catch (e) {}
         requestRedraw();
     }
 });
 cf.on('error', (err) => { addLog(`[FATAL] Failed to start cloudflared.exe: ${err.message}`); });
 cf.on('close', (code) => { addLog(`[NETWORK] Tunnel exited (Code ${code})`); });
 
-process.on('SIGINT', () => { if (cf) cf.kill(); process.exit(0); });
-process.on('SIGTERM', () => { if (cf) cf.kill(); process.exit(0); });
-process.on('exit', () => { if (cf) cf.kill(); });
 
 // Setup WebSockets
 interface SlotData { 
@@ -314,6 +422,9 @@ function updatePlayerCount() { activePlayers = slots.filter(s => s.ws !== null).
 function freeSlot(index: number) {
     if (index >= 0 && index < MAX_USERS && slots[index].ws !== null) {
         const name = slots[index].name;
+        if (slots[index].ws) {
+            clientRtts.delete(slots[index].ws as WebSocket);
+        }
         slots[index].ws = null;
         slots[index].name = "";
         slots[index].isJoined = false;
@@ -395,8 +506,19 @@ wss.on('connection', (ws: WebSocket) => {
             }
             const data = JSON.parse(message.toString());
             if (data.type === 'ping') { 
+                if (typeof data.rtt === 'number') {
+                    clientRtts.set(ws, data.rtt);
+                }
                 ws.send(JSON.stringify({ type: 'pong', t: data.t })); 
                 return; 
+            }
+            if (data.type === 'client_telemetry_error') {
+                const cleanErr = String(data.message || 'Unknown Client Error').substring(0, 140);
+                const clientRef = (slotIndex !== -1 && slots[slotIndex]?.name && slots[slotIndex]?.isJoined) 
+                    ? `Slot ${playerNum} (${slots[slotIndex].name})` 
+                    : (audienceSockets.has(ws) ? 'Audience' : 'Connecting');
+                addLog(`[CLIENT ERROR] [${clientRef}] ${cleanErr} (line ${data.line || '?'}:${data.col || '?'})`);
+                return;
             }
             if (data.type === 'host_command') {
                 if (data.token !== 'MASTER_KEY' && data.token !== ACTIVE_ROOM_CODE) {
@@ -544,6 +666,7 @@ wss.on('connection', (ws: WebSocket) => {
         } catch (e) {}
     });
     ws.on('close', () => { 
+        clientRtts.delete(ws);
         if (audienceSockets.has(ws)) {
             audienceSockets.delete(ws);
             addLog(`[DISCONNECT] Audience spectator left.`);
@@ -577,18 +700,93 @@ setInterval(() => {
 // Deterministic 1000ms Heartbeat to TouchDesigner
 setInterval(() => {
     sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
+    if (cloudflareUrl) {
+        try {
+            udpPort.send({ address: '/bridge/tunnel', args: [{ type: 's', value: cloudflareUrl }] }, "127.0.0.1", OSC_PORT);
+        } catch (e) {}
+    }
 }, 1000);
+
+// Loopback ping to TouchDesigner (measures IPC / UDP latency)
+setInterval(() => {
+    try {
+        udpPort.send({
+            address: "/bridge/ping",
+            args: [{ type: "f", value: Date.now() }]
+        }, "127.0.0.1", OSC_PORT);
+    } catch (e) {}
+}, 2000);
+
+// Resilient Graceful Shutdown & Child Process Tree Purge
+let isShuttingDown = false;
+function gracefulShutdown(signal: string) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    addLog(`[SYSTEM] Initiating clean shutdown (${signal})...`);
+
+    // Hard fallback timeout (2000ms)
+    const forceExitTimer = setTimeout(() => {
+        try {
+            if (fs.existsSync(PID_FILE)) {
+                const currentPid = fs.readFileSync(PID_FILE, 'utf8').trim();
+                if (currentPid === String(process.pid)) fs.unlinkSync(PID_FILE);
+            }
+        } catch (e) {}
+        process.exit(1);
+    }, 2000);
+    forceExitTimer.unref();
+
+    // 1. Synchronously kill cloudflared process tree if active
+    if (cf && cf.pid) {
+        try {
+            spawnSync('taskkill', ['/F', '/T', '/PID', String(cf.pid)], { stdio: 'ignore' });
+        } catch (e) {}
+    }
+
+    // 2. Terminate all client websockets cleanly
+    for (const slot of slots) {
+        if (slot.ws) {
+            try { slot.ws.terminate(); } catch (e) {}
+            slot.ws = null;
+        }
+    }
+    for (const ws of audienceSockets) {
+        try { ws.terminate(); } catch (e) {}
+    }
+    audienceSockets.clear();
+
+    // 3. Close network servers and sockets
+    try { wss.close(); } catch (e) {}
+    try { server.close(); } catch (e) {}
+    try { udpPort.close(); } catch (e) {}
+
+    // 4. Remove PID file
+    try {
+        if (fs.existsSync(PID_FILE)) {
+            const currentPid = fs.readFileSync(PID_FILE, 'utf8').trim();
+            if (currentPid === String(process.pid)) {
+                fs.unlinkSync(PID_FILE);
+            }
+        }
+    } catch (e) {}
+
+    process.exit(0);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));
 
 server.listen(WS_PORT, '0.0.0.0', () => { printDashboard(); });
 
 server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
-        console.error(`\n[FATAL] Port ${WS_PORT} is already in use! Exiting in 3s...`);
+        console.error(`\n[FATAL] Port ${WS_PORT} is already in use! Exiting immediately...`);
         addLog(`[FATAL] Port ${WS_PORT} in use`);
-        setTimeout(() => process.exit(1), 3000);
+        gracefulShutdown('EADDRINUSE');
     } else {
         console.error('[FATAL] Server error:', err.message);
-        process.exit(1);
+        gracefulShutdown('SERVER_ERROR');
     }
 });
 

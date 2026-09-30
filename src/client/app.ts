@@ -3,6 +3,54 @@
 // Multi-touch, role-based, real RTT telemetry, 60Hz performance controller.
 // ============================================================================
 
+// ============================================================================
+// 0. TELEMETRY & FLIGHT RECORDER (Global Exception Traps)
+// ============================================================================
+const recentErrorFingerprints = new Map<string, number>();
+let errorBeaconCountThisMinute = 0;
+let lastErrorMinuteTimestamp = Date.now();
+
+function sendClientTelemetryError(msg: string, line?: number, col?: number, stack?: string) {
+    const now = Date.now();
+    if (now - lastErrorMinuteTimestamp > 60000) {
+        errorBeaconCountThisMinute = 0;
+        lastErrorMinuteTimestamp = now;
+    }
+    if (errorBeaconCountThisMinute >= 5) return; // Max 5 beacons/min rate limit
+
+    const fingerprint = `${msg}:${line}:${col}`;
+    const lastSent = recentErrorFingerprints.get(fingerprint) || 0;
+    if (now - lastSent < 10000) return; // Deduplicate within 10s
+
+    recentErrorFingerprints.set(fingerprint, now);
+    errorBeaconCountThisMinute++;
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        try {
+            ws.send(JSON.stringify({
+                type: 'client_telemetry_error',
+                message: msg,
+                line: line || null,
+                col: col || null,
+                stack: stack ? stack.substring(0, 300) : null,
+                ua: navigator.userAgent
+            }));
+        } catch (e) {}
+    }
+}
+
+window.onerror = (message, source, lineno, colno, error) => {
+    sendClientTelemetryError(String(message), lineno, colno, error?.stack);
+    return false;
+};
+
+window.onunhandledrejection = (event) => {
+    const reason = event.reason;
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    const stack = reason instanceof Error ? reason.stack : undefined;
+    sendClientTelemetryError(`Unhandled Rejection: ${msg}`, undefined, undefined, stack);
+};
+
 let ws: WebSocket | null = null;
 let currentSlot: number = -1;
 let currentRole: string = "performer";
@@ -15,6 +63,8 @@ let playerName: string = "ANONYMOUS";
 let selectedColorHex: string = "#00f0ff";
 let selectedColorName: string = "CYAN";
 let reconnectTimer: any = null;
+let reconnectAttempts: number = 0;
+const MAX_RECONNECT_ATTEMPTS: number = 5;
 let pingIntervalTimer: any = null;
 let lastPingSentTime: number = 0;
 let currentRtt: number = 0;
@@ -211,6 +261,7 @@ fetch(`${httpUrlBase}/branding`)
 // ============================================================================
 
 joinBtn.addEventListener('click', () => {
+    reconnectAttempts = 0;
     let raw = nameInput.value.trim().toUpperCase();
     if (!raw) {
         generateRandomHandle();
@@ -239,6 +290,7 @@ joinBtn.addEventListener('click', () => {
 });
 
 exitBtn.addEventListener('click', () => {
+    reconnectAttempts = 0;
     flushInputs();
     if (ws) ws.close();
     if (reconnectTimer) {
@@ -269,11 +321,13 @@ function connectWS(roomCode: string) {
     ws = new WebSocket(wsUrlBase);
 
     ws.onopen = () => {
+        reconnectAttempts = 0;
         slotIndicator.innerText = "LINKING...";
         ws?.send(JSON.stringify({
             type: 'join',
             name: playerName,
             room: roomCode,
+            role: currentRole,
             color_hex: selectedColorHex,
             color_name: selectedColorName
         }));
@@ -285,26 +339,60 @@ function connectWS(roomCode: string) {
         try {
             const data = JSON.parse(event.data);
             if (data.type === 'assigned_slot') {
+                reconnectAttempts = 0;
                 currentSlot = data.slot;
                 slotIndicator.innerText = `SLOT #${String(currentSlot).padStart(2, '0')}`;
                 startInputLoop();
+            } else if (data.type === 'audience_joined') {
+                reconnectAttempts = 0;
+                slotIndicator.innerText = `AUDIENCE`;
             } else if (data.type === 'pong') {
                 handlePong(data);
+            } else if (data.type === 'rejected') {
+                const reason = data.reason || 'REJECTED';
+                showError(`JOIN REJECTED: ${reason}`);
+                exitBtn.click();
+                return;
             } else if (data.type === 'error') {
                 showError(data.message || 'CONNECTION ERROR');
                 exitBtn.click();
+                return;
             }
         } catch (e) {}
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event: CloseEvent) => {
+        if (pingIntervalTimer) {
+            clearInterval(pingIntervalTimer);
+            pingIntervalTimer = null;
+        }
+
+        // 1000 = Clean exit, 4001 = Invalid room, 4002 = Room full
+        if (event.code === 1000 || event.code === 4001 || event.code === 4002) {
+            slotIndicator.innerText = "OFFLINE";
+            showError(`DISCONNECTED (${event.code}): ${event.reason || 'Session ended'}`);
+            ui.style.display = 'none';
+            gate.style.display = 'flex';
+            currentSlot = -1;
+            return;
+        }
+
         if (ui.style.display === 'flex') {
             slotIndicator.innerText = "DISCONNECTED";
-            if (rttStatus) {
-                rttStatus.innerText = "LINK: TIMEOUT // RETRYING";
-                rttStatus.className = "hud-tag crimson";
+            if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                reconnectAttempts++;
+                const backoffMs = Math.min(8000, 1000 * Math.pow(2, reconnectAttempts - 1));
+                if (rttStatus) {
+                    rttStatus.innerText = `LINK: DROPPED // RETRY ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} IN ${backoffMs/1000}s`;
+                    rttStatus.className = "hud-tag crimson";
+                }
+                reconnectTimer = setTimeout(() => connectWS(roomCode), backoffMs);
+            } else {
+                showError("CONNECTION LOST: Server unreachable after 5 attempts");
+                ui.style.display = 'none';
+                gate.style.display = 'flex';
+                currentSlot = -1;
             }
-            reconnectTimer = setTimeout(() => connectWS(roomCode), 2000);
         }
     };
 }
@@ -315,7 +403,12 @@ function startPingLoop() {
     pingIntervalTimer = setInterval(() => {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
         lastPingSentTime = performance.now();
-        ws.send(JSON.stringify({ type: 'ping', t: lastPingSentTime }));
+        ws.send(JSON.stringify({
+            type: 'ping',
+            t: lastPingSentTime,
+            rtt: currentRtt,
+            fps: measuredClientFps
+        }));
     }, 2000);
 }
 
@@ -325,14 +418,14 @@ function handlePong(data: any) {
     currentRtt = Math.max(1, Math.round(now - sentTime));
 
     let tagClass = "hud-tag green";
-    let statusText = `RTT: ${currentRtt}ms // SYNC`;
+    let statusText = `RTT: ${currentRtt}ms // ${measuredClientFps.toFixed(1)} FPS`;
 
     if (currentRtt > 150) {
         tagClass = "hud-tag crimson";
         statusText = `RTT: ${currentRtt}ms // DEGRADED`;
     } else if (currentRtt > 60) {
         tagClass = "hud-tag amber";
-        statusText = `RTT: ${currentRtt}ms // WI-FI`;
+        statusText = `RTT: ${currentRtt}ms // ${measuredClientFps.toFixed(1)} FPS`;
     }
 
     if (rttStatus) {
@@ -340,7 +433,7 @@ function handlePong(data: any) {
         rttStatus.className = tagClass;
     }
     if (gateTelemetry) {
-        gateTelemetry.innerText = `LINK VERIFIED // RTT: ${currentRtt}ms`;
+        gateTelemetry.innerText = `LINK VERIFIED // RTT: ${currentRtt}ms // ${measuredClientFps.toFixed(1)} FPS`;
     }
 }
 
@@ -451,8 +544,22 @@ function handleJoyMove(e: PointerEvent) {
     if (trailBuffer.length > 24) trailBuffer.shift();
 }
 
-// 60Hz Oscilloscope Rendering Loop
+// 60Hz Oscilloscope Rendering Loop & Real Client FPS Measurement
+let lastRafTime = performance.now();
+const fpsSamples: number[] = [];
+let measuredClientFps: number = 60.0;
+
 function renderOscilloscope() {
+    const now = performance.now();
+    const delta = now - lastRafTime;
+    lastRafTime = now;
+    if (delta > 0 && delta < 500) {
+        fpsSamples.push(1000 / delta);
+        if (fpsSamples.length > 60) fpsSamples.shift();
+        const sum = fpsSamples.reduce((a, b) => a + b, 0);
+        measuredClientFps = Math.round((sum / fpsSamples.length) * 10) / 10;
+    }
+
     if (vectorCanvas && vctx && viewPerformer && viewPerformer.style.display !== 'none') {
         const rect = joystickBoundary ? joystickBoundary.getBoundingClientRect() : null;
         if (rect) {
