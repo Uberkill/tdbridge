@@ -292,8 +292,11 @@
             <div class="master-top-grid">
                 <!-- Block 1: Global Show Scene -->
                 <div class="master-block">
-                    <div class="master-block-header">GLOBAL SHOW SCENE</div>
-                    <div class="scene-switcher-buttons">
+                    <div class="master-block-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>GLOBAL SHOW SCENE</span>
+                        <span id="master-scene-health" class="hud-tag cyan" style="font-size: 10px;">[HEALTHY]</span>
+                    </div>
+                    <div class="scene-switcher-buttons" id="master-scene-buttons">
                         <button type="button" class="scene-btn is-active" data-scene="aquarium">01 // AQUARIUM</button>
                         <button type="button" class="scene-btn" data-scene="canvas">02 // PARTICLE CANVAS</button>
                         <button type="button" class="scene-btn" data-scene="qr">03 // QR BANNER</button>

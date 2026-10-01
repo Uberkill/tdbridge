@@ -1,18 +1,27 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
 
 console.log("=========================================================");
 console.log("           TDBRIDGE UNIFIED TEST SUITE RUNNER            ");
 console.log("=========================================================\n");
 
-const tests = [
-    { name: "Controller Profile Switching", file: "tests/e2e/test_profile_switching.js" },
-    { name: "Live CHOP & DAT Stream", file: "tests/e2e/test_live_chop_feed.js" },
-    { name: "Aquarium Expansion & Feeding", file: "tests/e2e/verify_aquarium_expansion.js" },
-    { name: "Single Player Interactive Scenario", file: "tests/e2e/test_scenario.js" },
-    { name: "Multi-Player Concurrency", file: "tests/e2e/test_multi_player.js" }
-];
+async function run() {
+    // Reset relay profile to gamepad
+    await new Promise(resolve => {
+        const req = http.request('http://127.0.0.1:8080/profile/gamepad', { method: 'POST' }, () => resolve());
+        req.on('error', () => resolve());
+        req.end();
+    });
+
+    const tests = [
+        { name: "Controller Profile Switching", file: "tests/e2e/test_profile_switching.js" },
+        { name: "Live CHOP & DAT Stream", file: "tests/e2e/test_live_chop_feed.js" },
+        { name: "Aquarium Expansion & Feeding", file: "tests/e2e/verify_aquarium_expansion.js" },
+        { name: "Single Player Interactive Scenario", file: "tests/e2e/test_scenario.js" },
+        { name: "Multi-Player Concurrency", file: "tests/e2e/test_multi_player.js" }
+    ];
 
 let passed = 0;
 let failed = 0;
@@ -38,8 +47,11 @@ for (const t of tests) {
     }
 }
 
-console.log("\n=========================================================");
-console.log(`TEST RESULTS: ${passed} passed, ${failed} failed`);
-console.log("=========================================================");
+    console.log("\n=========================================================");
+    console.log(`TEST RESULTS: ${passed} passed, ${failed} failed`);
+    console.log("=========================================================");
 
-process.exit(failed > 0 ? 1 : 0);
+    process.exit(failed > 0 ? 1 : 0);
+}
+
+run();

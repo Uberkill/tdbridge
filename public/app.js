@@ -131,6 +131,7 @@ const wsUrlBase = isLocal ? `ws://${hostname || '127.0.0.1'}:8080` : `${wsProtoc
 const httpUrlBase = isLocal ? `http://${hostname || '127.0.0.1'}:8080` : `${protocol}//${window.location.host}`;
 const urlParams = new URLSearchParams(window.location.search);
 const initialRoom = (urlParams.get('room') || "").trim().toUpperCase();
+const initialKey = (urlParams.get('master_key') || urlParams.get('key') || "").trim().toUpperCase();
 if (initialRoom.length === 4) {
     for (let i = 0; i < 4; i++) {
         if (codeBoxes[i])
@@ -140,6 +141,31 @@ if (initialRoom.length === 4) {
         roomCodeHidden.value = initialRoom;
     if (masterRoomInput)
         masterRoomInput.value = initialRoom;
+}
+if (initialKey) {
+    if (masterKeyInput)
+        masterKeyInput.value = initialKey;
+    try {
+        const cleanUrl = window.location.pathname + (initialRoom ? `?room=${initialRoom}` : '');
+        window.history.replaceState({}, document.title, cleanUrl);
+    }
+    catch (e) { }
+    // Auto-launch master console
+    if (initialRoom.length === 4) {
+        setTimeout(executeMasterAuth, 150);
+    }
+    else {
+        fetch(`${httpUrlBase}/health`)
+            .then(res => res.json())
+            .then(data => {
+            if (data.room && data.room.length === 4) {
+                if (masterRoomInput)
+                    masterRoomInput.value = data.room;
+                setTimeout(executeMasterAuth, 150);
+            }
+        })
+            .catch(() => { });
+    }
 }
 codeBoxes.forEach((box, idx) => {
     if (!box)
@@ -571,6 +597,37 @@ function handleRosterUpdate(data) {
             ? `[ONLINE // ${data.td_fps || '60.0'} FPS]`
             : `[OFFLINE // LINK DOWN]`;
         masterTdStatus.className = data.td_connected ? "hud-tag green" : "hud-tag crimson";
+    }
+    // Sync Scene Health status tag
+    const masterSceneHealth = document.getElementById('master-scene-health');
+    if (masterSceneHealth && data.scene_health) {
+        masterSceneHealth.innerText = String(data.scene_health);
+        masterSceneHealth.className = String(data.scene_health).includes('REPAIRED') || String(data.scene_health).includes('WARNING')
+            ? "hud-tag amber"
+            : "hud-tag cyan";
+    }
+    // Dynamic Scene Buttons
+    const sceneButtonsContainer = document.getElementById('master-scene-buttons');
+    if (sceneButtonsContainer && Array.isArray(data.available_scenes) && data.available_scenes.length > 0) {
+        const existingScenes = Array.from(sceneButtonsContainer.querySelectorAll('.scene-btn')).map(b => b.getAttribute('data-scene'));
+        const newScenes = data.available_scenes.map((s) => s.id);
+        const isDifferent = existingScenes.length !== newScenes.length || existingScenes.some((id, idx) => id !== newScenes[idx]);
+        if (isDifferent) {
+            sceneButtonsContainer.textContent = '';
+            data.available_scenes.forEach((sc) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `scene-btn ${sc.id === data.active_scene ? 'is-active' : ''}`;
+                btn.setAttribute('data-scene', sc.id);
+                btn.textContent = sc.label || sc.id.toUpperCase();
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.scene-btn').forEach(b => b.classList.remove('is-active'));
+                    btn.classList.add('is-active');
+                    sendHostCommand('scene_switch', { scene: sc.id });
+                });
+                sceneButtonsContainer.appendChild(btn);
+            });
+        }
     }
     // Sync Active Scene and Profile buttons
     if (data.active_scene) {

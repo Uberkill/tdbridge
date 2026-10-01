@@ -45,6 +45,13 @@ function generateRoomCode(): string {
 }
 const ACTIVE_ROOM_CODE = generateRoomCode();
 const ACTIVE_MASTER_KEY = `OP-${crypto.randomInt(100000, 999999)}`;
+let ACTIVE_MASTER_PIN = '1234';
+let tdAvailableScenes: Array<{ id: string, label: string, index: number }> = [
+    { id: 'aquarium', label: '[01] Interactive Aquarium', index: 0 },
+    { id: 'canvas', label: '[02] Generative Particle Canvas', index: 1 },
+    { id: 'qr', label: '[03] Room Code & QR Banner', index: 2 }
+];
+let tdSceneHealth = '[HEALTHY // 2 SCENES LINKED]';
 
 const app = express();
 app.use(express.json());
@@ -340,6 +347,24 @@ udpPort.on("message", (oscMsg: any) => {
             } else {
                 addLog(`[PROFILE] Unknown profile requested via OSC: ${requested}`);
             }
+        } else if (oscMsg.address === "/bridge/master_pin") {
+            const rawPin = String(val ?? '').trim();
+            if (/^[0-9a-zA-Z]{4,6}$/.test(rawPin)) {
+                ACTIVE_MASTER_PIN = rawPin;
+                addLog(`[SECURITY] Updated Master PIN (length ${rawPin.length})`);
+            }
+        } else if (oscMsg.address === "/td/scene_list") {
+            try {
+                const parsed = typeof val === 'string' ? JSON.parse(val) : val;
+                if (parsed && Array.isArray(parsed.scenes)) {
+                    tdAvailableScenes = parsed.scenes;
+                    if (parsed.health) tdSceneHealth = String(parsed.health);
+                    broadcastRoster();
+                }
+            } catch (e) {}
+        } else if (oscMsg.address === "/td/scene_health") {
+            tdSceneHealth = String(val ?? '');
+            broadcastRoster();
         } else if (oscMsg.address === "/bridge/set_blueprint") {
             try {
                 const rawJson = typeof val === 'string' ? JSON.parse(val) : val;
@@ -370,11 +395,13 @@ function setScene(sceneName: string, explicitProfile?: string, sendToTD = true) 
     const cleanScene = String(sceneName || '').toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 32);
     if (!cleanScene) return;
 
-    let canonical = 'aquarium';
+    let canonical = cleanScene;
     if (cleanScene === 'canvas' || cleanScene === 'particle' || cleanScene === 'particles') {
         canonical = 'canvas';
     } else if (cleanScene === 'qr' || cleanScene === 'kinetic' || cleanScene === 'lobby') {
         canonical = 'qr';
+    } else if (cleanScene === 'aquarium' || cleanScene === 'fish' || cleanScene === 'fishtank') {
+        canonical = 'aquarium';
     }
     activeScene = canonical;
 
@@ -613,7 +640,9 @@ function getRosterPayload() {
         current_profile: currentProfile,
         active_scene: activeScene,
         td_fps: tdFPS,
-        td_connected: (Date.now() - tdLastSeen < 3500) && (tdLastSeen > 0)
+        td_connected: (Date.now() - tdLastSeen < 3500) && (tdLastSeen > 0),
+        available_scenes: tdAvailableScenes,
+        scene_health: tdSceneHealth
     };
 }
 
@@ -689,29 +718,47 @@ wss.on('connection', (ws: WebSocket, req) => {
                 const reqRoom = String(data.room || '').trim().toUpperCase();
                 const reqKey = String(data.key || '').trim().toUpperCase();
 
-                if (reqRoom !== ACTIVE_ROOM_CODE || reqKey !== ACTIVE_MASTER_KEY) {
+                const socketAttempts = ((ws as any)._masterAttempts || 0);
+                const isKeyValid = (reqKey === ACTIVE_MASTER_KEY);
+                const isPinValid = Boolean(ACTIVE_MASTER_PIN && reqKey === ACTIVE_MASTER_PIN.toUpperCase());
+
+                if (reqRoom !== ACTIVE_ROOM_CODE || (!isKeyValid && !isPinValid)) {
+                    (ws as any)._masterAttempts = socketAttempts + 1;
                     recordAuthFailure(clientIp);
-                    addLog(`[SECURITY] Failed FOH Master login attempt from ${clientIp}`);
+                    addLog(`[SECURITY] Failed FOH Master login attempt from ${clientIp} (${(ws as any)._masterAttempts}/3)`);
+
+                    if ((ws as any)._masterAttempts >= 3) {
+                        ws.send(JSON.stringify({ 
+                            type: 'master_login_fail', 
+                            reason: 'Security termination: 3 failed attempts.' 
+                        }));
+                        ws.close(4003, 'Brute force defense');
+                        return;
+                    }
+
                     ws.send(JSON.stringify({ 
                         type: 'master_login_fail', 
-                        reason: 'Invalid Room Code or Master Key.' 
+                        reason: 'Invalid Room Code or Master Key / PIN.' 
                     }));
                     return;
                 }
 
                 // Authentication Successful
                 unauthenticatedSockets.delete(ws);
+                (ws as any)._masterAttempts = 0;
                 const sessionToken = crypto.randomBytes(16).toString('hex');
                 masterSockets.set(ws, sessionToken);
                 masterAuthFailures.delete(clientIp);
 
-                addLog(`[MASTER] FOH Operator authenticated from ${clientIp}`);
+                addLog(`[MASTER] FOH Operator authenticated from ${clientIp} (method: ${isPinValid ? 'PIN' : 'MASTER_KEY'})`);
                 ws.send(JSON.stringify({ 
                     type: 'master_login_success', 
                     token: sessionToken,
                     room: ACTIVE_ROOM_CODE,
                     profile: currentProfile,
-                    active_scene: activeScene
+                    active_scene: activeScene,
+                    available_scenes: tdAvailableScenes,
+                    scene_health: tdSceneHealth
                 }));
 
                 // Immediately send live state and roster

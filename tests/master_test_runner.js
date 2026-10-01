@@ -106,6 +106,11 @@ async function main() {
             domain: "DOMAIN 8: HYBRID MULTI-SCENE & PARTICLE CANVAS",
             cmd: "node",
             args: ["tests/e2e/test_scene_and_particle_canvas.js"]
+        },
+        {
+            domain: "DOMAIN 9: SELF-HEALING ARCHITECTURE & MASTER PIN",
+            cmd: "node",
+            args: ["tests/e2e/test_self_heal_and_master_pin.js"]
         }
     ];
 
