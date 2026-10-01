@@ -1,50 +1,109 @@
-# TDBridge: Complete System Documentation & Multi-Agent Audit Report
+# TDBridge Technical Architecture & Systems Engineering Specification
 
-## 1. System Architecture Overview
-The **TDBridge** is a modular, high-performance web-to-TouchDesigner integration. It creates a robust WebSocket pipeline allowing up to 100 mobile users to connect to a live TouchDesigner session without installing an app. 
+**Document Version:** 2.4.0 (Production Release)  
+**Target Environment:** Node.js 18+ / TouchDesigner 2023+ & 2025+ on Windows 10/11  
+**Quality Gate:** 100% Deterministic Pass across 9 Test Domains (`npm test`)
 
-### Core Components
-- **Frontend:** A TypeScript/HTML5 web application hosted on GitHub Pages. It acts as a blank canvas, receiving its entire UI blueprint from the server upon connection. Features NippleJS for joystick input.
-- **Networking:** Cloudflare Tunnels secure a fast, local-to-internet bridge (`trycloudflare.com`), bypassing standard NAT and firewall routing.
-- **Backend:** A pure-Python WebSocket Server DAT inside TouchDesigner that reads payloads, updates a centralized `user_data` Table DAT, and drives visual parameters.
-- **Visual Engine:** A Replicator COMP architecture that dynamically clones player avatars (`item1`, `item2`) on the fly based on the `user_data` table.
+---
 
-## 2. Multi-Agent Audit Findings
-We ran a rigorous multi-agent stress test simulating a 15+ concurrent user load. The agents identified critical scaling limits and provided architectural fixes.
+## 1. System Topology & Communication Matrix
 
-### A. TouchDesigner Backend Performance (Auditor: TD Performance Agent)
-- **Bottleneck 1: JSON Parsing on Main Thread**
-  - *Risk:* 15 users sending 30 payloads a second = 450 JSON strings parsed per second. Doing this inside `onReceiveText` (the main render thread) will cause micro-stutters and drop the frame rate below 60fps.
-  - *Patch/Next Step:* Offload incoming WebSocket strings into a lightweight Python `collections.deque` and batch-process them only once per frame using an Execute DAT (`onFrameStart`).
-- **Bottleneck 2: Replicator Stalls**
-  - *Risk:* The Replicator COMP physically deletes and recreates nodes in the TouchDesigner network when users join or leave. This triggers massive dependency graph re-evaluations and will freeze the screen for 50-100ms when players join.
-  - *Patch/Next Step:* Migrate from `Replicator COMP` to **GPU Instancing**. We will pre-allocate 100 fixed slots in a CHOP, and use an `Active` toggle to hide/show them. This incurs 0% CPU node-creation cost and runs entirely on the GPU.
+TDBridge splits the high-concurrency mobile interaction pipeline from the real-time visual rendering pipeline to guarantee stable 60 FPS performance.
 
-### B. Frontend & Mobile UX (Auditor: Mobile UX Agent)
-- **Bottleneck 1: Connection Dropping on Screen Sleep**
-  - *Risk:* Mobile Safari/Chrome aggressively suspends WebSocket connections if the user locks their screen or switches apps.
-  - *Current Mitigation:* We implemented a `visibilitychange` listener in `app.ts` that immediately pings the server and triggers a full reconnect sequence the second the user brings the browser back into view. We also implemented `wakeLock` to prevent the screen from sleeping.
-- **Bottleneck 2: Stuck UI Elements (Multi-touch Ghosting)**
-  - *Risk:* Dragging a finger off a button instead of lifting it causes "stuck" states (value remains 1 indefinitely).
-  - *Current Mitigation:* `app.ts` is explicitly hardened with `touchend`, `touchcancel`, and `mouseleave` event hooks to mathematically guarantee a 0 is fired on release.
+```text
+┌─────────────────┐       WebSocket (Port 8080)       ┌────────────────────────┐
+│  Mobile Browser │ ◄───────────────────────────────► │   Node.js Relay Server │
+└─────────────────┘                                   └────────────────────────┘
+                                                              │        ▲
+                                            OSC UDP Port 9000 │        │ OSC UDP Port 9001
+                                            (/slot_*, /env/*) │        │ (/td/fps, /td/scene_list)
+                                                              ▼        │
+                                                      ┌────────────────────────┐
+                                                      │  TouchDesigner Engine  │
+                                                      │  (TDBridge.toe / .tox) │
+                                                      └────────────────────────┘
+```
 
-## 3. End-to-End Test Cases & Coverage
-- **Edge Case 1: Room Code Validation.** If a user types the wrong 4-letter code, the WebSocket successfully handshakes but instantly sends a `rejected` payload and severs the connection cleanly.
-- **Edge Case 2: Ghost Clients.** If a mobile phone loses 4G service and drops the WebSocket without a `close` packet, the backend `onWebSocketClose` natively catches the broken pipe and cleanly purges the user from the `user_data` DAT.
-- **Edge Case 3: Malformed UI Input.** If a malicious user attempts to send `{"type": "control", "id": "hack_system", "value": 9999}`, the backend strictly scans against the `ui_config` DAT schema. Unregistered IDs are safely ignored, preventing Python exceptions.
+### Port Routing Table
+| Port | Protocol | Binding Direction | Purpose | Throttling & Cadence |
+| :--- | :--- | :--- | :--- | :--- |
+| **8080** | HTTP / WebSocket | Client $\leftrightarrow$ Relay | Attendee handshakes, control packets, FOH operator streaming, telemetry REST API (`/health`, `/telemetry`). | 60Hz per slot cap, 1024-byte payload limit. |
+| **9000** | OSC over UDP | Relay $\rightarrow$ TouchDesigner | Translates client inputs to `/slot_<N>_<chan>` and master environment cues to `/env/<param>`. | 60Hz synchronous packet emission. |
+| **9001** | OSC over UDP | TouchDesigner $\rightarrow$ Relay | Telemetry heartbeats (`/td/fps`, `/td/clones`), error alerts (`/td/error`), scene registries (`/td/scene_list`), and PIN sync. | 1000ms periodic heartbeat loop. |
+| **9980** | HTTP / REST | MCP Tool $\leftrightarrow$ TouchDesigner | WebServer DAT bridge for automated programmatic test execution and inspection. | On-demand test invocation. |
 
-## 4. How to Create Custom UI Controls
-The frontend is 100% data-driven. To add a new button or slider to the mobile app:
-1. Open the `ui_config` Table DAT in TouchDesigner.
-2. Add a new row.
-   - `id`: internal reference name (e.g. `slider_volume`)
-   - `type`: `button` or `slider`
-   - `label`: Display text on the phone (e.g. "Volume")
-   - `min` / `max`: Range parameters (only needed for sliders)
-3. Save the DAT. The next time a phone connects, the button will dynamically generate on their screen, and their inputs will seamlessly flow into the `user_data` table.
+---
 
-## 5. Version Control Strategy
-Git is officially initialized on the local TouchDesigner file directory.
-- `TDBridge.tox`: The core logic container. Version controlled and fully portable.
-- `testing.toe`: The master project file. Version controlled.
-- **Workflow:** Prior to making large architectural changes (like migrating to GPU Instancing), run `git commit -a -m "Message"` locally to snapshot the working stable state.
+## 2. TouchDesigner Engine Architecture: Cook-Loop Prevention
+
+### The Problem
+In standard TouchDesigner configurations, attaching a Python callback to an `oscinDAT` that writes into a downstream `TableDAT` marks the table as "dirty". If any operator downstream references this table, it forces the `oscinDAT` to re-cook, creating an infinite cook dependency loop. This causes the main render loop to freeze, drops the frame rate from 60 FPS to 12 FPS, and eventually locks the UDP socket.
+
+### The Solution: Passive FIFO & Atomic Frame Draining
+TDBridge enforces a strictly decoupled, 4-stage ingestion model:
+
+```text
+Incoming UDP Packets
+       │
+       ▼
+[ bridge_osc_in ] (oscinDAT: par.callbacks = '', par.splitmessage = True)
+       │  (Passive buffer: Appends rows without executing any Python callbacks)
+       ▼
+[ osc_processor ] (ExecuteDAT: Registered exclusively to onFrameStart)
+       │
+       ├── Stage 1: Drains incoming rows in a single batch on frame start.
+       ├── Stage 2: Updates pre-allocated cells in players_data[slot, col].
+       ├── Stage 3: Routes master cues to parent().par or active scene COMPs.
+       └── Stage 4: try...finally: bridge_osc_in.par.clear.pulse() (Atomic buffer purge).
+```
+
+### Table Dimension Invariant
+- `players_data` is initialized with **exactly 101 rows $\times$ 15 columns**.
+- Rows are never appended or deleted dynamically. Row $N$ always corresponds to Slot $N$.
+- This avoids Replicator COMP stalls and prevents dynamic CHOP buffer allocations on the GPU.
+
+---
+
+## 3. Dual-Code Security & Zero-Trust Defense Matrix
+
+| Attack Vector | Vulnerability Risk | Mitigation Implementation in TDBridge |
+| :--- | :--- | :--- |
+| **Cross-Client Impersonation** | Malicious users claiming another performer's slot or overriding control channels. | **Deferred Slot Reservation:** Sockets are unauthenticated until valid room handshake. Sockets map strictly to internal `socketToSlot` Map. Incoming control messages must match the socket's assigned slot. |
+| **Credential Brute-Forcing** | Automated scripts guessing the 4-digit Master PIN or room code. | **Connection-Level Rate Limiting:** Sockets failing master authentication 3 consecutive times are terminated with code `4003`. Remote IPs failing 5 times enter a 60-second lockout. |
+| **OSC Path Traversal / Injection** | Malicious JSON keys (e.g. `../../param`) corrupting internal TouchDesigner paths. | **Strict Regex Whitelisting:** Control IDs must match `/^[a-zA-Z0-9_-]{1,16}$/`. Environment parameters must match `/^[a-zA-Z0-9_]{1,24}$/`. Traversal characters (`/`, `\`, `.`) are rejected. |
+| **Prototype Pollution** | Corrupting Node.js `Object.prototype` via `__proto__` or `constructor` keys. | **Prototype-Free Slot State:** Slot dictionaries are allocated strictly via `Object.create(null)`. Payloads containing `__proto__`, `constructor`, or `prototype` are dropped. |
+| **XSS in Operator Console** | Malicious player handles executing scripts on the FOH Master Console. | **Zero innerHTML:** The FOH Master Console builds all roster rows, handles, and telemetry badges strictly using `document.createElement()` and `textContent`. |
+| **Denial of Service (DoS) Flood** | Rapid client taps flooding the WebSocket server or TouchDesigner buffer. | **Per-Client Rate Limiting:** Performer input messages are clamped to a minimum interval of 15ms (~60Hz). Audience spectator taps are rate-limited to $\le 10$ taps/second. Oversized frames ($> 1024$ bytes) are dropped. |
+
+---
+
+## 4. The 9-Domain Unified Master Test Suite
+
+The test suite (`node tests/master_test_runner.js`, wired to `npm test`) enforces a strict quality gate:
+
+```text
+====================================================================
+            TDBRIDGE MASTER TEST EXECUTION SUMMARY              
+====================================================================
+  [PASS] [01] DOMAIN 1: UNIT & PROTOCOL VALIDATION
+       • Tests client blueprint sanitization, slider normalization, and profile schema parsing.
+  [PASS] [02] DOMAIN 2: ZERO-TRUST SECURITY & INJECTION
+       • Tests prototype pollution defense, regex whitelisting, and unauthorized host command rejection.
+  [PASS] [03] DOMAIN 3: FOH MASTER CONSOLE & REMOTE KICK
+       • Tests Master Key authentication, session token binding, live roster streaming, and slot kicking.
+  [PASS] [04] DOMAIN 4: 4-DOMAIN TELEMETRY & PORT HYGIENE
+       • Tests GET /telemetry schema, cook FPS measurement, UDP port cleanup, and client error beacons.
+  [PASS] [05] DOMAIN 5: ENGINE REMEDIATION & INVARIANTS
+       • Tests TouchDesigner 101x15 table schema, 13x100 CHOP channels, and zero ghost entity cleanup.
+  [PASS] [06] DOMAIN 6: MULTI-PLAYER SCENARIOS & PROFILES
+       • Tests 100-player concurrency, slot gap resilience, and interactive feeding scenarios.
+  [PASS] [07] DOMAIN 7: HEADLESS PLAYWRIGHT BROWSER UI
+       • Headless browser testing verifying 0 console errors, modal behaviors, and responsive DOM rendering.
+  [PASS] [08] DOMAIN 8: HYBRID MULTI-SCENE & PARTICLE CANVAS
+       • Tests bi-directional scene switching (Aquarium <-> Canvas <-> QR) and late-joiner synchronization.
+  [PASS] [09] DOMAIN 9: SELF-HEALING ARCHITECTURE & MASTER PIN
+       • Tests 4-digit PIN auth, brute-force kick, automatic scene repair, and failover protection.
+--------------------------------------------------------------------
+TOTAL RESULT: 9/9 DOMAINS PASSED (100% DETERMINISTIC PASS)
+====================================================================
+```

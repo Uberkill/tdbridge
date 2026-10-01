@@ -1,67 +1,69 @@
-# TDBridge System Overview
+# TDBridge System Overview: The Non-Technical Guide
 
-As a product designer, you can think of this entire system as a **digital puppet show**. 
-- The **Mobile Phone** is the puppet's strings (the controller).
-- **TouchDesigner** is the puppet master (the brain).
-- **WebSockets** are the invisible wires connecting the strings to the brain.
+If you are a product manager, event producer, or non-technical director, you can think of the entire TDBridge system as a **high-speed digital puppet show**:
 
-Here is the high-level breakdown of how the data flows in milliseconds.
+- 📱 **The Smartphones** are the puppet's strings (the audience and performer controllers).
+- 🧠 **TouchDesigner** is the puppet master and stage (the visual rendering engine).
+- ⚡ **WebSockets & OSC** are the invisible high-speed cables connecting the strings to the brain at 60 frames per second.
+- 🎛️ **The FOH Master Console** is the director's booth (managing who is on stage, which scene is active, and emergency cues).
 
-## 1. The Architecture (Visualized)
+---
+
+## 1. How the System Works in Real Life
 
 ```mermaid
 flowchart TD
-    %% Define Styles
-    classDef phone fill:#1a73e8,stroke:#000,stroke-width:2px,color:#fff
-    classDef cloud fill:#fbbc05,stroke:#000,stroke-width:2px,color:#000
-    classDef td fill:#34a853,stroke:#000,stroke-width:2px,color:#fff
-    classDef db fill:#ea4335,stroke:#000,stroke-width:2px,color:#fff
+    classDef phone fill:#111,stroke:#fff,stroke-width:2px,color:#fff
+    classDef relay fill:#222,stroke:#00e5ff,stroke-width:2px,color:#00e5ff
+    classDef td fill:#222,stroke:#00ff66,stroke-width:2px,color:#00ff66
+    classDef screen fill:#222,stroke:#ffb700,stroke-width:2px,color:#ffb700
 
-    %% Nodes
-    A[📱 Mobile Phone (GitHub Pages)]:::phone
-    B((☁️ Cloudflare Tunnel)):::cloud
-    C[🧠 TouchDesigner Server]:::td
-    D[(💾 ui_config Spreadsheet)]:::db
-    E[(💾 user_data Spreadsheet)]:::db
-    F[✨ Visual Effects Output]:::td
+    A["📱 Audience & Performer Phones<br/>(Zero App Install / Instant Web QR)"]:::phone
+    B["⚡ Node.js Relay Server<br/>(Manages Slots, Security & Throttling)"]:::relay
+    C["🧠 TouchDesigner Engine<br/>(Simulation, Physics & Shaders)"]:::td
+    D["🖥️ Big Screen Projection / LED Wall<br/>(Live 60 FPS Visuals)"]:::screen
+    E["🎛️ FOH Master Operator Console<br/>(Laptop / iPad Show Control)"]:::phone
 
-    %% Connections
-    A -- 1. Joins the Room --> B
-    B -- Passes connection --> C
-    D -. 2. Generates Blueprint .-> C
-    C -- 3. Sends Blueprint back --> A
-    A -- 4. User moves joystick --> B
-    B -- Passes Joystick Data --> C
-    C -- 5. Updates Player Data --> E
-    E -- 6. Drives Graphics --> F
+    A -- 1. Scan QR & Move Joysticks --> B
+    E -- 2. Scene Switch & Live Tuning --> B
+    B -- 3. High-Speed OSC Packets --> C
+    C -- 4. Renders Interactive Scene --> D
+    C -. 5. Telemetry & Heartbeat .-> B
+    B -. 6. Live Roster & Cook FPS .-> E
 ```
 
 ---
 
-## 2. The Components, Explained
+## 2. The Core Components Explained
 
-### 🌐 The Invisible Wire: WebSockets
-Normally, when you visit a website, you click a link, wait 2 seconds, and a new page loads. That is too slow for gaming or live visuals. 
-**WebSockets** are different. When your phone connects, it leaves a permanent "tube" open between your phone and TouchDesigner. We can shove data down this tube 30 to 60 times a second instantly, with zero loading screens.
+### 🌐 The Fast Highway: WebSockets & OSC
+Normally, websites are built to show you static pages. If you press a button on a normal website, it might take a second to talk to a database.  
+In a live show or concert, a 1-second delay feels broken. TDBridge keeps permanent, open network pipes (WebSockets to the relay, and high-frequency UDP OSC to TouchDesigner). Input from your finger reaches the projector screen in **10 to 20 milliseconds**, making it feel like an analog gaming console.
 
-### 📱 The Frontend (The Phone)
-The code hosted on GitHub Pages is just an empty shell. By itself, it has no buttons and no idea what it is supposed to control. It only has one job: **Wait for instructions.**
-When a user scans the QR code and types in the 4-letter room code, the phone reaches out across the internet and connects to TouchDesigner via the Cloudflare Tunnel.
+### 📱 The Phone Experience (Zero App Download)
+Nobody wants to download an app from the App Store just to interact with a concert or gallery for 10 minutes.
+With TDBridge:
+1. Attendees point their camera at the on-screen QR code.
+2. The phone immediately loads a clean, dark-mode web controller.
+3. They pick an avatar color, enter their handle, and immediately control the visuals on stage.
+4. If they just want to watch, they can join as a **Spectator** to tap the beat and send reactions without taking up an active performer slot.
 
-### 🧠 The Backend (TouchDesigner)
-TouchDesigner is the absolute master of this system. When it sees a new phone connect, it does two things:
-1. **The Handshake:** It looks at the `ui_config` spreadsheet you built in TouchDesigner, translates it into a digital blueprint, and shoots it down the WebSocket tube to the phone.
-2. **The Transformation:** The phone receives the blueprint and *instantly* draws the giant buttons, sliders, and joysticks on the screen. 
+### 🎛️ The Dynamic Blueprint Engine (Why It's Magic)
+The phone screen does not have hardcoded buttons permanently burned into it. It is a chameleon:
+- When the show is running the **Aquarium**, the phone displays a swimming joystick, a *Feed Fish* trigger, a *Change Color* trigger, and swimming speed faders.
+- When the director switches to the **Particle Canvas**, the phone instantly morphs into a glowing 2D touch surface with *Brush Size* controls.
+- When the director switches to the **DJ Set / Music Scene**, the phone transforms into a 4-channel fader mixing console.
+- **You never have to re-code the website.** When TouchDesigner changes scenes, the phones adapt automatically.
 
-### 🎛️ The Modularity (Why this is magic for you)
-Because the phone is just an empty shell taking orders, **you never have to code the website again.**
-If you want to add a new "Flashbang" button for a live show:
-1. You open the `ui_config` spreadsheet in TouchDesigner.
-2. You type `button` in one column, `Flashbang` in the next, and pick a hex color.
-3. You save it.
-That's it. The next time a user joins, TouchDesigner tells their phone to draw a Flashbang button.
+### 🛡️ Dual-Code Security: Keeping the Stage Safe
+At any live public event, there is a risk of someone trying to mess with the show. TDBridge solves this with two distinct security keys:
+1. **Public Room Code (e.g. `HJHX`):** Anyone in the audience can see and use this code. It only gives them control over their own avatar or spectator reactions. They cannot access master cues, kick other people, or crash the server.
+2. **Private Master Key (`OP-XXXXXX`) or 4-Digit PIN (`1234`):** Strictly for the VJ and stage crew. It unlocks the Front-of-House Console to switch scenes, adjust simulation speeds, or disconnect disruptive users.
 
-### 💥 The Output (Driving the Visuals)
-When the user taps that new Flashbang button, the phone sends a tiny message down the WebSocket tube: `"I pressed Flashbang"`.
-TouchDesigner instantly writes a `1` next to that user's name in the `user_data` spreadsheet. 
-Because TouchDesigner is built for visuals, you simply take that `1` from the spreadsheet, wire it into a lighting effect or a particle explosion, and the visual happens on the big screen instantly.
+---
+
+## 3. What Happens When Something Breaks? (Self-Healing)
+Live events are unpredictable. What happens if someone unplugs a cable, renames a scene folder, or a phone loses Wi-Fi?
+- **Ghost-Free Disconnects:** If a user walks out of the venue or closes their phone, the system cleans up their slot within seconds, removes their avatar, and frees the slot for someone else.
+- **Network Self-Healing:** If an artist adds a new visual scene or renames a folder inside TouchDesigner, clicking **`[Audit & Self-Heal Network]`** automatically reconnects all video wires and data pipelines without taking the show offline.
+- **Failover Protection:** If an active scene is accidentally deleted during performance, TDBridge catches the error and instantly falls back to a safe screen (like the QR Banner), preventing the audience from ever seeing a black screen.
