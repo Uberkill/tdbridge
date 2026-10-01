@@ -776,22 +776,112 @@ function updateSceneControlsRack(scene) {
     const aquariumRack = document.getElementById('scene-controls-aquarium');
     const canvasRack = document.getElementById('scene-controls-canvas');
     const qrRack = document.getElementById('scene-controls-qr');
+    const dynamicRack = document.getElementById('scene-controls-dynamic');
     const badge = document.getElementById('master-active-scene-badge');
+    const isBuiltin = (sc === 'aquarium' || sc === 'canvas' || sc === 'qr');
     if (aquariumRack)
         aquariumRack.style.display = (sc === 'aquarium') ? 'block' : 'none';
     if (canvasRack)
         canvasRack.style.display = (sc === 'canvas') ? 'block' : 'none';
     if (qrRack)
         qrRack.style.display = (sc === 'qr') ? 'block' : 'none';
+    if (dynamicRack) {
+        dynamicRack.style.display = !isBuiltin ? 'block' : 'none';
+        if (!isBuiltin) {
+            renderDynamicSceneRack(sc);
+        }
+    }
     if (badge) {
         badge.textContent = sc.toUpperCase();
         if (sc === 'aquarium')
             badge.className = 'hud-tag green';
         else if (sc === 'canvas')
             badge.className = 'hud-tag cyan';
-        else
+        else if (sc === 'qr')
             badge.className = 'hud-tag yellow';
+        else
+            badge.className = 'hud-tag white';
     }
+}
+function renderDynamicSceneRack(scene) {
+    const actionsContainer = document.getElementById('dynamic-rack-actions');
+    const slidersContainer = document.getElementById('dynamic-rack-sliders');
+    if (!actionsContainer || !slidersContainer)
+        return;
+    actionsContainer.textContent = '';
+    slidersContainer.textContent = '';
+    // Action 1: Trigger Pulse
+    const pulseBtn = document.createElement('button');
+    pulseBtn.type = 'button';
+    pulseBtn.className = 'mono-btn rack-action-btn';
+    const pTitle = document.createElement('span');
+    pTitle.className = 'rack-btn-title';
+    pTitle.textContent = 'TRIGGER PULSE';
+    const pSub = document.createElement('span');
+    pSub.className = 'rack-btn-sub';
+    pSub.textContent = 'EXECUTE EVENT';
+    pulseBtn.appendChild(pTitle);
+    pulseBtn.appendChild(pSub);
+    pulseBtn.addEventListener('click', () => {
+        sendEnv(`${scene}_pulse`, 1);
+        safeHaptic();
+    });
+    actionsContainer.appendChild(pulseBtn);
+    // Action 2: Reset State
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'mono-btn rack-action-btn';
+    const rTitle = document.createElement('span');
+    rTitle.className = 'rack-btn-title';
+    rTitle.textContent = 'RESET STATE';
+    const rSub = document.createElement('span');
+    rSub.className = 'rack-btn-sub';
+    rSub.textContent = 'RESTORE DEFAULT';
+    resetBtn.appendChild(rTitle);
+    resetBtn.appendChild(rSub);
+    resetBtn.addEventListener('click', () => {
+        sendEnv(`${scene}_reset`, 1);
+        safeHaptic();
+    });
+    actionsContainer.appendChild(resetBtn);
+    // Dynamic Sliders: Speed, Intensity, Scale
+    const defaultSliders = [
+        { id: `${scene}_speed`, label: 'GENERATIVE SPEED', min: 0.1, max: 2.0, step: 0.05, def: 1.0, unit: 'x' },
+        { id: `${scene}_intensity`, label: 'EFFECT INTENSITY', min: 0.0, max: 1.0, step: 0.01, def: 0.8, unit: '%' },
+        { id: `${scene}_scale`, label: 'GEOMETRY SCALE', min: 0.5, max: 2.5, step: 0.05, def: 1.0, unit: 'x' }
+    ];
+    defaultSliders.forEach(s => {
+        const mod = document.createElement('div');
+        mod.className = 'slider-module rack-slider';
+        const header = document.createElement('div');
+        header.className = 'slider-header';
+        const title = document.createElement('span');
+        title.className = 'slider-title';
+        title.textContent = s.label;
+        const valSpan = document.createElement('span');
+        valSpan.className = 'slider-val';
+        valSpan.textContent = s.unit === '%' ? `${Math.round(s.def * 100)}%` : `${s.def.toFixed(2)}${s.unit}`;
+        header.appendChild(title);
+        header.appendChild(valSpan);
+        mod.appendChild(header);
+        const wrap = document.createElement('div');
+        wrap.className = 'slider-track-wrap';
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.className = 'mono-range';
+        input.min = String(s.min);
+        input.max = String(s.max);
+        input.step = String(s.step);
+        input.value = String(s.def);
+        input.addEventListener('input', () => {
+            const v = parseFloat(input.value);
+            valSpan.textContent = s.unit === '%' ? `${Math.round(v * 100)}%` : `${v.toFixed(2)}${s.unit}`;
+            sendThrottledEnv(s.id, v);
+        });
+        wrap.appendChild(input);
+        mod.appendChild(wrap);
+        slidersContainer.appendChild(mod);
+    });
 }
 function sendEnv(param, value) {
     if (!ws || ws.readyState !== WebSocket.OPEN)
