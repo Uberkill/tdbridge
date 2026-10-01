@@ -420,6 +420,41 @@ function attachWebSocketHandlers() {
                 handleRosterUpdate(data);
                 return;
             }
+            // Scene Switched Broadcast (from TouchDesigner or Master)
+            if (data.type === 'scene_switched') {
+                const sc = data.scene || 'aquarium';
+                const prof = data.profile || 'gamepad';
+                document.querySelectorAll('.scene-btn').forEach(btn => {
+                    if (btn.getAttribute('data-scene') === sc) {
+                        btn.classList.add('is-active');
+                    }
+                    else {
+                        btn.classList.remove('is-active');
+                    }
+                });
+                document.querySelectorAll('.profile-btn').forEach(btn => {
+                    if (btn.getAttribute('data-profile') === prof) {
+                        btn.classList.add('is-active');
+                    }
+                    else {
+                        btn.classList.remove('is-active');
+                    }
+                });
+                return;
+            }
+            // Profile Change Broadcast
+            if (data.type === 'profile_change') {
+                const prof = data.profile || 'gamepad';
+                document.querySelectorAll('.profile-btn').forEach(btn => {
+                    if (btn.getAttribute('data-profile') === prof) {
+                        btn.classList.add('is-active');
+                    }
+                    else {
+                        btn.classList.remove('is-active');
+                    }
+                });
+                return;
+            }
             // General Attendee Handshakes
             if (data.type === 'assigned_slot') {
                 reconnectAttempts = 0;
@@ -536,6 +571,27 @@ function handleRosterUpdate(data) {
             ? `[ONLINE // ${data.td_fps || '60.0'} FPS]`
             : `[OFFLINE // LINK DOWN]`;
         masterTdStatus.className = data.td_connected ? "hud-tag green" : "hud-tag crimson";
+    }
+    // Sync Active Scene and Profile buttons
+    if (data.active_scene) {
+        document.querySelectorAll('.scene-btn').forEach(btn => {
+            if (btn.getAttribute('data-scene') === data.active_scene) {
+                btn.classList.add('is-active');
+            }
+            else {
+                btn.classList.remove('is-active');
+            }
+        });
+    }
+    if (data.current_profile) {
+        document.querySelectorAll('.profile-btn').forEach(btn => {
+            if (btn.getAttribute('data-profile') === data.current_profile) {
+                btn.classList.add('is-active');
+            }
+            else {
+                btn.classList.remove('is-active');
+            }
+        });
     }
     // Build Roster Table strictly using textContent & DOM Elements (Zero innerHTML)
     if (masterRosterTbody && Array.isArray(data.performers)) {

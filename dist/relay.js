@@ -116,6 +116,7 @@ app.get('/telemetry', (req, res) => {
             pid: process.pid,
             memory_rss_mb: Math.round(mem.rss / 1024 / 1024 * 10) / 10,
             active_profile: currentProfile,
+            active_scene: activeScene,
             room_code: ACTIVE_ROOM_CODE
         },
         ports: {
@@ -188,6 +189,7 @@ let tdLastSeen = 0;
 let tdClones = 0;
 let tdLoopbackLatency = 0;
 let currentProfile = 'gamepad';
+let activeScene = 'aquarium';
 let activeBlueprint = profiles_1.BUILTIN_PROFILES.gamepad.blueprint;
 // Client RTT Tracking
 const clientRtts = new Map();
@@ -332,6 +334,13 @@ udpPort.on("message", (oscMsg) => {
             tdErrors++;
             addLog(`[TD ENGINE ERROR] ${rawMsg.substring(0, 80)}`);
         }
+        else if (oscMsg.address === "/td/active_scene") {
+            const requestedScene = String(val || '').toLowerCase().trim();
+            const requestedProfile = String(oscMsg.args?.[1]?.value ?? oscMsg.args?.[1] ?? '').toLowerCase().trim();
+            if (requestedScene && requestedScene !== activeScene) {
+                setScene(requestedScene, requestedProfile || undefined, false);
+            }
+        }
         else if (oscMsg.address === "/bridge/profile") {
             const requested = String(val || '').toLowerCase().trim();
             if (profiles_1.BUILTIN_PROFILES[requested]) {
@@ -364,9 +373,64 @@ udpPort.on("ready", () => {
     sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
     try {
         udpPort.send({ address: '/bridge/master_code', args: [{ type: 's', value: ACTIVE_MASTER_KEY }] }, "127.0.0.1", OSC_PORT);
+        udpPort.send({ address: '/bridge/scene', args: [{ type: 's', value: activeScene }] }, "127.0.0.1", OSC_PORT);
     }
     catch (e) { }
 });
+function setScene(sceneName, explicitProfile, sendToTD = true) {
+    const cleanScene = String(sceneName || '').toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 32);
+    if (!cleanScene)
+        return;
+    let canonical = 'aquarium';
+    if (cleanScene === 'canvas' || cleanScene === 'particle' || cleanScene === 'particles') {
+        canonical = 'canvas';
+    }
+    else if (cleanScene === 'qr' || cleanScene === 'kinetic' || cleanScene === 'lobby') {
+        canonical = 'qr';
+    }
+    activeScene = canonical;
+    let targetProfile = explicitProfile;
+    if (!targetProfile || !profiles_1.BUILTIN_PROFILES[targetProfile]) {
+        if (canonical === 'canvas')
+            targetProfile = 'touchpad';
+        else if (canonical === 'qr')
+            targetProfile = 'audience';
+        else
+            targetProfile = 'gamepad';
+    }
+    if (currentProfile !== targetProfile && profiles_1.BUILTIN_PROFILES[targetProfile]) {
+        currentProfile = targetProfile;
+        activeBlueprint = profiles_1.BUILTIN_PROFILES[targetProfile].blueprint;
+        addLog(`[PROFILE] Switched active profile to: ${currentProfile.toUpperCase()}`);
+    }
+    addLog(`[SCENE] Switched active scene to: ${activeScene.toUpperCase()}`);
+    if (sendToTD) {
+        try {
+            udpPort.send({ address: '/bridge/scene', args: [{ type: 's', value: canonical }] }, '127.0.0.1', OSC_PORT);
+        }
+        catch (e) { }
+    }
+    broadcastSceneChange();
+    broadcastRoster();
+}
+function broadcastSceneChange() {
+    const payload = JSON.stringify({
+        type: 'scene_switched',
+        scene: activeScene,
+        profile: currentProfile,
+        profile_type: profiles_1.BUILTIN_PROFILES[currentProfile]?.type || 'custom',
+        ui_blueprint: activeBlueprint
+    });
+    for (const client of wss.clients) {
+        if (client.readyState === ws_1.default.OPEN) {
+            try {
+                client.send(payload);
+            }
+            catch (e) { }
+        }
+    }
+    requestRedraw();
+}
 function setProfile(profileName) {
     if (!profiles_1.BUILTIN_PROFILES[profileName])
         return;
@@ -541,6 +605,7 @@ function getRosterPayload() {
         master_count: masterSockets.size,
         room_code: ACTIVE_ROOM_CODE,
         current_profile: currentProfile,
+        active_scene: activeScene,
         td_fps: tdFPS,
         td_connected: (Date.now() - tdLastSeen < 3500) && (tdLastSeen > 0)
     };
@@ -633,7 +698,8 @@ wss.on('connection', (ws, req) => {
                     type: 'master_login_success',
                     token: sessionToken,
                     room: ACTIVE_ROOM_CODE,
-                    profile: currentProfile
+                    profile: currentProfile,
+                    active_scene: activeScene
                 }));
                 // Immediately send live state and roster
                 ws.send(JSON.stringify(getRosterPayload()));
@@ -648,8 +714,7 @@ wss.on('connection', (ws, req) => {
                 }
                 if (data.action === 'scene_switch') {
                     const cleanScene = String(data.scene || '').replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 32);
-                    udpPort.send({ address: '/bridge/scene', args: [{ type: 's', value: cleanScene }] }, '127.0.0.1', OSC_PORT);
-                    addLog(`[MASTER] Switched scene to: ${cleanScene}`);
+                    setScene(cleanScene, undefined, true);
                 }
                 else if (data.action === 'system_reset') {
                     udpPort.send({ address: '/bridge/reset', args: [{ type: 'i', value: 1 }] }, '127.0.0.1', OSC_PORT);
@@ -724,7 +789,8 @@ wss.on('connection', (ws, req) => {
                     ws.send(JSON.stringify({
                         type: 'audience_joined',
                         room: ACTIVE_ROOM_CODE,
-                        profile: currentProfile
+                        profile: currentProfile,
+                        active_scene: activeScene
                     }));
                     addLog(`[CONNECT] Spectator joined as AUDIENCE (0 performer slots consumed)`);
                     broadcastRoster();
@@ -761,6 +827,7 @@ wss.on('connection', (ws, req) => {
                     slot: playerNum,
                     profile: currentProfile,
                     profile_type: profiles_1.BUILTIN_PROFILES[currentProfile]?.type || 'custom',
+                    active_scene: activeScene,
                     ui_blueprint: activeBlueprint
                 }));
                 // Update TouchDesigner OSC Pipeline

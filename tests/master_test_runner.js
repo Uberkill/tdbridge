@@ -101,6 +101,11 @@ async function main() {
             domain: "DOMAIN 7: HEADLESS PLAYWRIGHT BROWSER UI",
             cmd: "node",
             args: ["tests/ui/test_playwright_master_ui.js"]
+        },
+        {
+            domain: "DOMAIN 8: HYBRID MULTI-SCENE & PARTICLE CANVAS",
+            cmd: "node",
+            args: ["tests/e2e/test_scene_and_particle_canvas.js"]
         }
     ];
 
