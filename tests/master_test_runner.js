@@ -37,11 +37,22 @@ async function main() {
 
     // Pre-flight check
     process.stdout.write("[*] Verifying Relay Server on port 8080... ");
-    const relayCheck = await probeHttp('http://127.0.0.1:8080/health');
+    let relayCheck = await probeHttp('http://127.0.0.1:8080/health');
+    let spawnedRelay = null;
     if (!relayCheck.ok || !relayCheck.data?.room) {
-        console.log("\x1b[31mOFFLINE\x1b[0m");
-        console.error("FATAL: Relay Server is not active on :8080. Start it before running test suite.");
-        process.exit(1);
+        console.log("\x1b[33mOFFLINE (Auto-starting relay)...\x1b[0m");
+        const { spawn } = require('child_process');
+        spawnedRelay = spawn('node', ['dist/relay.js'], { cwd: CWD, stdio: 'ignore', detached: true });
+        spawnedRelay.unref();
+        for (let attempt = 0; attempt < 25; attempt++) {
+            await new Promise(r => setTimeout(r, 200));
+            relayCheck = await probeHttp('http://127.0.0.1:8080/health');
+            if (relayCheck.ok && relayCheck.data?.room) break;
+        }
+        if (!relayCheck.ok || !relayCheck.data?.room) {
+            console.error("FATAL: Failed to auto-start Relay Server on :8080.");
+            process.exit(1);
+        }
     }
     console.log(`\x1b[32mONLINE\x1b[0m (Room: ${relayCheck.data.room})`);
 
@@ -64,22 +75,22 @@ async function main() {
         {
             domain: "DOMAIN 2: ZERO-TRUST SECURITY & INJECTION",
             cmd: "node",
-            args: ["tests/test_master_security.js"]
+            args: ["tests/security/test_master_security.js"]
         },
         {
             domain: "DOMAIN 3: FOH MASTER CONSOLE & REMOTE KICK",
             cmd: "node",
-            args: ["tests/test_full_master_lifecycle.js"]
+            args: ["tests/security/test_full_master_lifecycle.js"]
         },
         {
             domain: "DOMAIN 4: 4-DOMAIN TELEMETRY & PORT HYGIENE",
             cmd: "node",
-            args: ["tests/test_telemetry_and_ports.js"]
+            args: ["tests/telemetry/test_telemetry_and_ports.js"]
         },
         {
             domain: "DOMAIN 5: ENGINE REMEDIATION & INVARIANTS",
             cmd: "node",
-            args: ["tests/verify_remediation_battery.js"]
+            args: ["tests/e2e/verify_remediation_battery.js"]
         },
         {
             domain: "DOMAIN 6: MULTI-PLAYER SCENARIOS & PROFILES",
@@ -89,7 +100,7 @@ async function main() {
         {
             domain: "DOMAIN 7: HEADLESS PLAYWRIGHT BROWSER UI",
             cmd: "node",
-            args: ["tests/test_playwright_master_ui.js"]
+            args: ["tests/ui/test_playwright_master_ui.js"]
         }
     ];
 
