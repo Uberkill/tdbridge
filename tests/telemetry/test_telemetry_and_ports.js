@@ -66,7 +66,11 @@ async function runTests() {
         assert(t.touchdesigner, "Missing touchdesigner domain");
         assert.strictEqual(typeof t.touchdesigner.is_connected, 'boolean');
         assert.strictEqual(typeof t.touchdesigner.cook_fps, 'number');
-        assert(t.touchdesigner.cook_fps > 0, "Expected cook_fps > 0");
+        if (t.touchdesigner.is_connected) {
+            assert(t.touchdesigner.cook_fps > 0, "Expected cook_fps > 0 when connected");
+        } else {
+            assert(t.touchdesigner.cook_fps >= 0, "Expected cook_fps >= 0");
+        }
 
         // Network domain
         assert(t.network, "Missing network domain");

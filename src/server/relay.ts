@@ -181,6 +181,14 @@ let tdLoopbackLatency = 0;
 let currentProfile = 'gamepad';
 let activeScene = 'aquarium';
 let activeBlueprint: ControlItem[] = BUILTIN_PROFILES.gamepad.blueprint;
+const envStates: Record<string, number> = {
+    num_bots: 5,
+    bot_speed: 0.25,
+    bot_scale: 1.0,
+    player_scale: 1.0,
+    canvas_trail: 0.95,
+    canvas_speed: 1.0
+};
 
 // Client RTT Tracking
 const clientRtts: Map<WebSocket, number> = new Map();
@@ -758,7 +766,8 @@ wss.on('connection', (ws: WebSocket, req) => {
                     profile: currentProfile,
                     active_scene: activeScene,
                     available_scenes: tdAvailableScenes,
-                    scene_health: tdSceneHealth
+                    scene_health: tdSceneHealth,
+                    env_states: envStates
                 }));
 
                 // Immediately send live state and roster
@@ -819,9 +828,26 @@ wss.on('connection', (ws: WebSocket, req) => {
 
             // Environment / Auxiliary Controls
             if (data.type === 'env') {
+                const sessionToken = masterSockets.get(ws);
+                const isMaster = !!sessionToken && (data.token === sessionToken);
+                if (!isMaster && data.param !== 'scare') {
+                    ws.send(JSON.stringify({ type: 'error', message: 'UNAUTHORIZED: Valid FOH Master session token required for environment controls' }));
+                    return;
+                }
+
                 if (typeof data.param === 'string' && ENV_PARAM_REGEX.test(data.param)) {
                     if (data.param === '__proto__' || data.param === 'constructor' || data.param === 'prototype') return;
-                    const val = typeof data.value === 'number' ? data.value : (data.value ? 1 : 0);
+                    let val = typeof data.value === 'number' ? data.value : (data.value ? 1 : 0);
+
+                    // Clamp values to defined safe physical boundaries
+                    if (data.param === 'num_bots') val = Math.max(0, Math.min(5, Math.round(val)));
+                    else if (data.param === 'bot_speed') val = Math.max(0.05, Math.min(0.50, val));
+                    else if (data.param === 'bot_scale') val = Math.max(0.4, Math.min(2.0, val));
+                    else if (data.param === 'player_scale') val = Math.max(0.4, Math.min(2.0, val));
+                    else if (data.param === 'canvas_trail') val = Math.max(0.50, Math.min(0.99, val));
+                    else if (data.param === 'canvas_speed') val = Math.max(0.1, Math.min(3.0, val));
+
+                    envStates[data.param] = val;
                     udpPort.send({
                         address: `/env/${data.param}`,
                         args: [{ type: "f", value: val }]

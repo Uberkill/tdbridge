@@ -108,11 +108,15 @@ const metricSpectators = document.getElementById('metric-spectators') as HTMLSpa
 const metricTdFps = document.getElementById('metric-td-fps') as HTMLSpanElement;
 const metricTdErrors = document.getElementById('metric-td-errors') as HTMLSpanElement;
 
-// Sliders: s1 (Speed) and s2 (Size)
+// Sliders: s1-s4 (DOM Pool)
 const sliderS1 = document.getElementById('slider-s1') as HTMLInputElement;
 const sliderS1Readout = document.getElementById('slider-s1-readout') as HTMLSpanElement;
 const sliderS2 = document.getElementById('slider-s2') as HTMLInputElement;
 const sliderS2Readout = document.getElementById('slider-s2-readout') as HTMLSpanElement;
+const sliderS3 = document.getElementById('slider-s3') as HTMLInputElement;
+const sliderS3Readout = document.getElementById('slider-s3-readout') as HTMLSpanElement;
+const sliderS4 = document.getElementById('slider-s4') as HTMLInputElement;
+const sliderS4Readout = document.getElementById('slider-s4-readout') as HTMLSpanElement;
 
 // Joystick Elements
 const joystickBoundary = document.getElementById('joystick-boundary') as HTMLDivElement;
@@ -460,6 +464,8 @@ function attachWebSocketHandlers() {
                 gate.style.display = 'none';
                 ui.style.display = 'none';
                 if (masterUi) masterUi.style.display = 'flex';
+                if (data.active_scene) updateSceneControlsRack(data.active_scene);
+                if (data.env_states) hydrateMasterEnvSliders(data.env_states);
                 return;
             }
 
@@ -473,6 +479,10 @@ function attachWebSocketHandlers() {
             if (data.type === 'scene_switched') {
                 const sc = data.scene || 'aquarium';
                 const prof = data.profile || 'gamepad';
+                updateSceneControlsRack(sc);
+                if (Array.isArray(data.ui_blueprint)) {
+                    renderBlueprint(data.ui_blueprint);
+                }
                 document.querySelectorAll('.scene-btn').forEach(btn => {
                     if (btn.getAttribute('data-scene') === sc) {
                         btn.classList.add('is-active');
@@ -493,6 +503,9 @@ function attachWebSocketHandlers() {
             // Profile Change Broadcast
             if (data.type === 'profile_change') {
                 const prof = data.profile || 'gamepad';
+                if (Array.isArray(data.ui_blueprint)) {
+                    renderBlueprint(data.ui_blueprint);
+                }
                 document.querySelectorAll('.profile-btn').forEach(btn => {
                     if (btn.getAttribute('data-profile') === prof) {
                         btn.classList.add('is-active');
@@ -508,6 +521,9 @@ function attachWebSocketHandlers() {
                 reconnectAttempts = 0;
                 currentSlot = data.slot;
                 slotIndicator.innerText = `SLOT #${String(currentSlot).padStart(2, '0')}`;
+                if (Array.isArray(data.ui_blueprint)) {
+                    renderBlueprint(data.ui_blueprint);
+                }
                 startInputLoop();
             } else if (data.type === 'audience_joined') {
                 reconnectAttempts = 0;
@@ -748,6 +764,7 @@ sceneButtons.forEach(btn => {
         sceneButtons.forEach(b => b.classList.remove('is-active'));
         btn.classList.add('is-active');
         const sc = btn.getAttribute('data-scene') || 'aquarium';
+        updateSceneControlsRack(sc);
         sendHostCommand('scene_switch', { scene: sc });
     });
 });
@@ -787,6 +804,172 @@ function sendHostCommand(action: string, extra: any) {
             ...extra
         }));
     }
+}
+
+// ============================================================================
+// 5B. FOH MASTER SCENE PARAMETERS RACK & ENVIRONMENT CONTROLS
+// ============================================================================
+
+function updateSceneControlsRack(scene: string) {
+    const sc = (scene || 'aquarium').toLowerCase();
+    const aquariumRack = document.getElementById('scene-controls-aquarium');
+    const canvasRack = document.getElementById('scene-controls-canvas');
+    const qrRack = document.getElementById('scene-controls-qr');
+    const badge = document.getElementById('master-active-scene-badge');
+
+    if (aquariumRack) aquariumRack.style.display = (sc === 'aquarium') ? 'block' : 'none';
+    if (canvasRack) canvasRack.style.display = (sc === 'canvas') ? 'block' : 'none';
+    if (qrRack) qrRack.style.display = (sc === 'qr') ? 'block' : 'none';
+
+    if (badge) {
+        badge.textContent = sc.toUpperCase();
+        if (sc === 'aquarium') badge.className = 'hud-tag green';
+        else if (sc === 'canvas') badge.className = 'hud-tag cyan';
+        else badge.className = 'hud-tag yellow';
+    }
+}
+
+function sendEnv(param: string, value: number) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!masterSessionToken) return;
+    ws.send(JSON.stringify({
+        type: 'env',
+        param,
+        value,
+        token: masterSessionToken
+    }));
+}
+
+let lastEnvSliderSend = 0;
+let pendingEnvTimeout: any = null;
+
+function sendThrottledEnv(param: string, value: number) {
+    const now = performance.now();
+    if (now - lastEnvSliderSend >= 33) { // ~30Hz
+        lastEnvSliderSend = now;
+        sendEnv(param, value);
+    } else {
+        if (pendingEnvTimeout) clearTimeout(pendingEnvTimeout);
+        pendingEnvTimeout = setTimeout(() => {
+            lastEnvSliderSend = performance.now();
+            sendEnv(param, value);
+        }, 33);
+    }
+}
+
+function hydrateMasterEnvSliders(env: Record<string, number>) {
+    if (!env) return;
+    if (typeof env.num_bots === 'number') {
+        const el = document.getElementById('rack-slider-bots') as HTMLInputElement;
+        const val = document.getElementById('rack-bots-val');
+        if (el) el.value = String(env.num_bots);
+        if (val) val.textContent = `${env.num_bots} BOTS`;
+    }
+    if (typeof env.bot_speed === 'number') {
+        const el = document.getElementById('rack-slider-speed') as HTMLInputElement;
+        const val = document.getElementById('rack-speed-val');
+        if (el) el.value = String(env.bot_speed);
+        if (val) val.textContent = Number(env.bot_speed).toFixed(2);
+    }
+    if (typeof env.bot_scale === 'number') {
+        const el = document.getElementById('rack-slider-scale') as HTMLInputElement;
+        const val = document.getElementById('rack-scale-val');
+        if (el) el.value = String(env.bot_scale);
+        if (val) val.textContent = `${Number(env.bot_scale).toFixed(2)}x`;
+    }
+    if (typeof env.canvas_trail === 'number') {
+        const el = document.getElementById('rack-slider-trail') as HTMLInputElement;
+        const val = document.getElementById('rack-trail-val');
+        if (el) el.value = String(env.canvas_trail);
+        if (val) val.textContent = `${Math.round(Number(env.canvas_trail) * 100)}%`;
+    }
+    if (typeof env.canvas_speed === 'number') {
+        const el = document.getElementById('rack-slider-turb') as HTMLInputElement;
+        const val = document.getElementById('rack-turb-val');
+        if (el) el.value = String(env.canvas_speed);
+        if (val) val.textContent = `${Number(env.canvas_speed).toFixed(2)}x`;
+    }
+}
+
+// Master Environment Rack Button Listeners
+const rackScareBtn = document.getElementById('rack-btn-scare');
+if (rackScareBtn) {
+    rackScareBtn.addEventListener('click', () => {
+        sendEnv('scare', 1);
+        safeHaptic();
+    });
+}
+const rackFeedBtn = document.getElementById('rack-btn-feed');
+if (rackFeedBtn) {
+    rackFeedBtn.addEventListener('click', () => {
+        sendEnv('drop_food', 1);
+        safeHaptic();
+    });
+}
+const rackBurstBtn = document.getElementById('rack-btn-burst');
+if (rackBurstBtn) {
+    rackBurstBtn.addEventListener('click', () => {
+        sendEnv('canvas_burst', 1);
+        safeHaptic();
+    });
+}
+const rackPaletteBtn = document.getElementById('rack-btn-palette');
+if (rackPaletteBtn) {
+    rackPaletteBtn.addEventListener('click', () => {
+        sendEnv('canvas_color', 1);
+        safeHaptic();
+    });
+}
+
+// Master Environment Rack Slider Listeners (30Hz Throttled)
+const rackSliderBots = document.getElementById('rack-slider-bots') as HTMLInputElement;
+const rackBotsVal = document.getElementById('rack-bots-val');
+if (rackSliderBots) {
+    rackSliderBots.addEventListener('input', () => {
+        const val = parseInt(rackSliderBots.value, 10);
+        if (rackBotsVal) rackBotsVal.textContent = `${val} BOTS`;
+        sendThrottledEnv('num_bots', val);
+    });
+}
+
+const rackSliderSpeed = document.getElementById('rack-slider-speed') as HTMLInputElement;
+const rackSpeedVal = document.getElementById('rack-speed-val');
+if (rackSliderSpeed) {
+    rackSliderSpeed.addEventListener('input', () => {
+        const val = parseFloat(rackSliderSpeed.value);
+        if (rackSpeedVal) rackSpeedVal.textContent = val.toFixed(2);
+        sendThrottledEnv('bot_speed', val);
+    });
+}
+
+const rackSliderScale = document.getElementById('rack-slider-scale') as HTMLInputElement;
+const rackScaleVal = document.getElementById('rack-scale-val');
+if (rackSliderScale) {
+    rackSliderScale.addEventListener('input', () => {
+        const val = parseFloat(rackSliderScale.value);
+        if (rackScaleVal) rackScaleVal.textContent = `${val.toFixed(2)}x`;
+        sendThrottledEnv('bot_scale', val);
+    });
+}
+
+const rackSliderTrail = document.getElementById('rack-slider-trail') as HTMLInputElement;
+const rackTrailVal = document.getElementById('rack-trail-val');
+if (rackSliderTrail) {
+    rackSliderTrail.addEventListener('input', () => {
+        const val = parseFloat(rackSliderTrail.value);
+        if (rackTrailVal) rackTrailVal.textContent = `${Math.round(val * 100)}%`;
+        sendThrottledEnv('canvas_trail', val);
+    });
+}
+
+const rackSliderTurb = document.getElementById('rack-slider-turb') as HTMLInputElement;
+const rackTurbVal = document.getElementById('rack-turb-val');
+if (rackSliderTurb) {
+    rackSliderTurb.addEventListener('input', () => {
+        const val = parseFloat(rackSliderTurb.value);
+        if (rackTurbVal) rackTurbVal.textContent = `${val.toFixed(2)}x`;
+        sendThrottledEnv('canvas_speed', val);
+    });
 }
 
 // ============================================================================
@@ -917,15 +1100,94 @@ function renderOscilloscope() {
 requestAnimationFrame(renderOscilloscope);
 
 // ============================================================================
-// 7. TOUCHDESIGNER ACTIONS & DUAL SLIDERS
+// 7. TOUCHDESIGNER ACTIONS, DUAL SLIDERS & DYNAMIC BLUEPRINTS
 // ============================================================================
+
+interface ControlItem {
+    type: 'button' | 'slider' | 'dpad' | 'toggle' | 'reaction';
+    id: string;
+    alias?: string;
+    label: string;
+    color?: string;
+    default_val?: number;
+    min?: number;
+    max?: number;
+    step?: number;
+    badge?: string;
+}
+
+function resetAllControlInputs() {
+    for (let i = 1; i <= 4; i++) {
+        const btn = document.getElementById(`btn-b${i}`);
+        if (btn && btn.classList.contains('is-active')) {
+            btn.classList.remove('is-active');
+            const id = btn.getAttribute('data-id') || `b${i}`;
+            sendControl(id, 0);
+        }
+    }
+}
+
+function renderBlueprint(blueprint: ControlItem[]) {
+    if (!Array.isArray(blueprint) || blueprint.length === 0) return;
+
+    // 1. Release active inputs before modifying controls
+    resetAllControlInputs();
+
+    // 2. Partition blueprint items into buttons and sliders
+    const buttonItems = blueprint.filter(item => item.type === 'button' || item.type === 'toggle');
+    const sliderItems = blueprint.filter(item => item.type === 'slider');
+
+    // 3. Update DOM Pool Buttons (#btn-b1 to #btn-b4)
+    for (let i = 0; i < 4; i++) {
+        const btn = document.getElementById(`btn-b${i + 1}`);
+        const titleEl = document.getElementById(`btn-title-b${i + 1}`);
+        const subEl = document.getElementById(`btn-sub-b${i + 1}`);
+        const item = buttonItems[i];
+
+        if (btn) {
+            if (item) {
+                btn.style.display = 'flex';
+                btn.setAttribute('data-id', item.id);
+                if (titleEl) titleEl.textContent = item.label.toUpperCase();
+                if (subEl) subEl.textContent = item.badge || `TRIGGER (${i + 1})`;
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+    }
+
+    // 4. Update DOM Pool Sliders (#slider-s1 to #slider-s4)
+    for (let i = 0; i < 4; i++) {
+        const mod = document.getElementById(`slider-module-s${i + 1}`);
+        const input = document.getElementById(`slider-s${i + 1}`) as HTMLInputElement;
+        const titleEl = document.getElementById(`slider-title-s${i + 1}`);
+        const readoutEl = document.getElementById(`slider-s${i + 1}-readout`);
+        const item = sliderItems[i];
+
+        if (mod && input) {
+            if (item) {
+                mod.style.display = 'block';
+                mod.setAttribute('data-id', item.id);
+                if (titleEl) titleEl.textContent = `${item.label.toUpperCase()} (${item.id})`;
+                const minVal = item.min !== undefined ? Math.round(item.min * 100) : 0;
+                const maxVal = item.max !== undefined ? Math.round(item.max * 100) : 100;
+                const defaultVal = item.default_val !== undefined ? Math.round(item.default_val * 100) : 50;
+                input.min = String(minVal);
+                input.max = String(maxVal);
+                input.value = String(defaultVal);
+                if (readoutEl) readoutEl.textContent = `${defaultVal}%`;
+            } else {
+                mod.style.display = 'none';
+            }
+        }
+    }
+}
 
 const actionButtons = document.querySelectorAll('.action-btn');
 actionButtons.forEach(btn => {
-    const id = btn.getAttribute('data-id') || 'b1';
-
     const press = (e: PointerEvent) => {
         e.preventDefault();
+        const id = btn.getAttribute('data-id') || 'b1';
         btn.classList.add('is-active');
         sendControl(id, 1);
         safeHaptic();
@@ -933,6 +1195,7 @@ actionButtons.forEach(btn => {
 
     const release = (e: PointerEvent) => {
         e.preventDefault();
+        const id = btn.getAttribute('data-id') || 'b1';
         btn.classList.remove('is-active');
         sendControl(id, 0);
     };
@@ -942,21 +1205,24 @@ actionButtons.forEach(btn => {
     btn.addEventListener('pointercancel', release as any);
 });
 
-if (sliderS1) {
-    sliderS1.addEventListener('input', () => {
-        const val = Number(sliderS1.value);
-        if (sliderS1Readout) sliderS1Readout.innerText = `${val}%`;
-        sendControl('s1', val / 100);
+function bindSliderModule(sliderInput: HTMLInputElement | null, readoutEl: HTMLSpanElement | null, fallbackId: string) {
+    if (!sliderInput) return;
+    sliderInput.addEventListener('input', () => {
+        const val = Number(sliderInput.value);
+        if (readoutEl) readoutEl.innerText = `${val}%`;
+        const mod = sliderInput.closest('.slider-module');
+        const id = (mod && mod.getAttribute('data-id')) ? mod.getAttribute('data-id')! : fallbackId;
+        const min = Number(sliderInput.min) || 0;
+        const max = Number(sliderInput.max) || 100;
+        const norm = max > min ? (val - min) / (max - min) : val / 100;
+        sendControl(id, norm);
     });
 }
 
-if (sliderS2) {
-    sliderS2.addEventListener('input', () => {
-        const val = Number(sliderS2.value);
-        if (sliderS2Readout) sliderS2Readout.innerText = `${val}%`;
-        sendControl('s2', val / 100);
-    });
-}
+bindSliderModule(sliderS1, sliderS1Readout, 's1');
+bindSliderModule(sliderS2, sliderS2Readout, 's2');
+bindSliderModule(sliderS3, sliderS3Readout, 's3');
+bindSliderModule(sliderS4, sliderS4Readout, 's4');
 
 function safeHaptic() {
     if ('vibrate' in navigator) {

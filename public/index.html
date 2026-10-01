@@ -184,32 +184,32 @@
                         <span id="performer-status-badge" class="hud-tag cyan">ACTIVE LINK</span>
                     </div>
 
-                    <!-- 4 Action Trigger Blocks -->
+                    <!-- Dynamic Action Trigger Pool (DOM Pool b1-b4) -->
                     <div id="dynamic-controls" class="actions-grid">
                         <button type="button" class="action-btn mono-btn" id="btn-b1" data-id="b1">
-                            <span class="btn-primary-title">ROTATE 360°</span>
-                            <span class="btn-sub-label">TRIGGER (1 / A)</span>
+                            <span class="btn-primary-title" id="btn-title-b1">ROTATE 360°</span>
+                            <span class="btn-sub-label" id="btn-sub-b1">TRIGGER (1 / A)</span>
                         </button>
                         <button type="button" class="action-btn mono-btn" id="btn-b2" data-id="b2">
-                            <span class="btn-primary-title">COLOR SWAP</span>
-                            <span class="btn-sub-label">PALETTE (2 / B)</span>
+                            <span class="btn-primary-title" id="btn-title-b2">COLOR SWAP</span>
+                            <span class="btn-sub-label" id="btn-sub-b2">PALETTE (2 / B)</span>
                         </button>
                         <button type="button" class="action-btn mono-btn" id="btn-b3" data-id="b3">
-                            <span class="btn-primary-title">FEED FISH</span>
-                            <span class="btn-sub-label">PELLET (3 / X)</span>
+                            <span class="btn-primary-title" id="btn-title-b3">FEED FISH</span>
+                            <span class="btn-sub-label" id="btn-sub-b3">PELLET (3 / X)</span>
                         </button>
                         <button type="button" class="action-btn mono-btn" id="btn-b4" data-id="b4">
-                            <span class="btn-primary-title">SPECIAL</span>
-                            <span class="btn-sub-label">SCARE (4 / Y)</span>
+                            <span class="btn-primary-title" id="btn-title-b4">SPECIAL</span>
+                            <span class="btn-sub-label" id="btn-sub-b4">SCARE (4 / Y)</span>
                         </button>
                     </div>
 
-                    <!-- Dual Sliders: s1 (Speed) and s2 (Size) -->
-                    <div class="sliders-stack">
+                    <!-- Dynamic Sliders Stack (DOM Pool s1-s4) -->
+                    <div class="sliders-stack" id="sliders-stack">
                         <!-- s1: Swim Speed -->
-                        <div class="slider-module">
+                        <div class="slider-module" id="slider-module-s1" data-id="s1">
                             <div class="slider-header">
-                                <span class="slider-title">SWIM SPEED (s1)</span>
+                                <span class="slider-title" id="slider-title-s1">SWIM SPEED (s1)</span>
                                 <span id="slider-s1-readout" class="slider-val">50%</span>
                             </div>
                             <div class="slider-track-wrap">
@@ -218,13 +218,35 @@
                         </div>
 
                         <!-- s2: Scale / Size -->
-                        <div class="slider-module">
+                        <div class="slider-module" id="slider-module-s2" data-id="s2">
                             <div class="slider-header">
-                                <span class="slider-title">SCALE / SIZE (s2)</span>
+                                <span class="slider-title" id="slider-title-s2">SCALE / SIZE (s2)</span>
                                 <span id="slider-s2-readout" class="slider-val">55%</span>
                             </div>
                             <div class="slider-track-wrap">
                                 <input type="range" id="slider-s2" min="35" max="95" value="55" class="mono-range">
+                            </div>
+                        </div>
+
+                        <!-- s3: Auxiliary Fader (DOM pool) -->
+                        <div class="slider-module" id="slider-module-s3" data-id="s3" style="display: none;">
+                            <div class="slider-header">
+                                <span class="slider-title" id="slider-title-s3">CHANNEL 3 (s3)</span>
+                                <span id="slider-s3-readout" class="slider-val">50%</span>
+                            </div>
+                            <div class="slider-track-wrap">
+                                <input type="range" id="slider-s3" min="0" max="100" value="50" class="mono-range">
+                            </div>
+                        </div>
+
+                        <!-- s4: Auxiliary Fader (DOM pool) -->
+                        <div class="slider-module" id="slider-module-s4" data-id="s4" style="display: none;">
+                            <div class="slider-header">
+                                <span class="slider-title" id="slider-title-s4">CHANNEL 4 (s4)</span>
+                                <span id="slider-s4-readout" class="slider-val">50%</span>
+                            </div>
+                            <div class="slider-track-wrap">
+                                <input type="range" id="slider-s4" min="0" max="100" value="50" class="mono-range">
                             </div>
                         </div>
                     </div>
@@ -289,10 +311,11 @@
         </header>
 
         <main class="master-workspace">
-            <div class="master-top-grid">
-                <!-- Block 1: Global Show Scene -->
+            <!-- Column 1: Show Control & Scene Environment Rack -->
+            <div class="master-col col-show-control">
+                <!-- Block 1: Global Show Scene Switcher -->
                 <div class="master-block">
-                    <div class="master-block-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="master-block-header flex-between">
                         <span>GLOBAL SHOW SCENE</span>
                         <span id="master-scene-health" class="hud-tag cyan" style="font-size: 10px;">[HEALTHY]</span>
                     </div>
@@ -304,7 +327,140 @@
                     <p class="master-note">Transmits `/bridge/scene` live to TouchDesigner. Syncs video and mobile profiles.</p>
                 </div>
 
-                <!-- Block 2: Stage Controller Profile Switcher -->
+                <!-- Block 2: Scene-Adaptive Environment Parameters Rack -->
+                <div class="master-block" id="master-scene-controls-block">
+                    <div class="master-block-header flex-between">
+                        <span>SCENE PARAMETERS RACK</span>
+                        <span id="master-active-scene-badge" class="hud-tag green">AQUARIUM</span>
+                    </div>
+
+                    <!-- 2A: Aquarium Controls Rack -->
+                    <div id="scene-controls-aquarium" class="scene-rack-panel">
+                        <div class="rack-actions-grid">
+                            <button type="button" class="mono-btn rack-action-btn" id="rack-btn-scare" data-env="scare">
+                                <span class="rack-btn-title">SCARE FISHES</span>
+                                <span class="rack-btn-sub">PULSE SCARE</span>
+                            </button>
+                            <button type="button" class="mono-btn rack-action-btn" id="rack-btn-feed" data-env="drop_food">
+                                <span class="rack-btn-title">FEED FISH</span>
+                                <span class="rack-btn-sub">DROP PELLET</span>
+                            </button>
+                        </div>
+                        <div class="rack-sliders-stack">
+                            <div class="slider-module rack-slider">
+                                <div class="slider-header">
+                                    <span class="slider-title">BOT CHOIR COUNT</span>
+                                    <span id="rack-bots-val" class="slider-val">5 BOTS</span>
+                                </div>
+                                <div class="slider-track-wrap">
+                                    <input type="range" id="rack-slider-bots" min="0" max="5" step="1" value="5" class="mono-range">
+                                </div>
+                            </div>
+                            <div class="slider-module rack-slider">
+                                <div class="slider-header">
+                                    <span class="slider-title">SWIM VELOCITY</span>
+                                    <span id="rack-speed-val" class="slider-val">0.25</span>
+                                </div>
+                                <div class="slider-track-wrap">
+                                    <input type="range" id="rack-slider-speed" min="0.05" max="0.50" step="0.01" value="0.25" class="mono-range">
+                                </div>
+                            </div>
+                            <div class="slider-module rack-slider">
+                                <div class="slider-header">
+                                    <span class="slider-title">BOT SCALE MULTIPLIER</span>
+                                    <span id="rack-scale-val" class="slider-val">1.0x</span>
+                                </div>
+                                <div class="slider-track-wrap">
+                                    <input type="range" id="rack-slider-scale" min="0.4" max="2.0" step="0.05" value="1.0" class="mono-range">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2B: Particle Canvas Controls Rack -->
+                    <div id="scene-controls-canvas" class="scene-rack-panel" style="display: none;">
+                        <div class="rack-actions-grid">
+                            <button type="button" class="mono-btn rack-action-btn" id="rack-btn-burst" data-env="canvas_burst">
+                                <span class="rack-btn-title">PARTICLE BURST</span>
+                                <span class="rack-btn-sub">TRIGGER PULSE</span>
+                            </button>
+                            <button type="button" class="mono-btn rack-action-btn" id="rack-btn-palette" data-env="canvas_color">
+                                <span class="rack-btn-title">PALETTE SHIFT</span>
+                                <span class="rack-btn-sub">CYCLE HUE</span>
+                            </button>
+                        </div>
+                        <div class="rack-sliders-stack">
+                            <div class="slider-module rack-slider">
+                                <div class="slider-header">
+                                    <span class="slider-title">TRAIL PERSISTENCE</span>
+                                    <span id="rack-trail-val" class="slider-val">95%</span>
+                                </div>
+                                <div class="slider-track-wrap">
+                                    <input type="range" id="rack-slider-trail" min="0.50" max="0.99" step="0.01" value="0.95" class="mono-range">
+                                </div>
+                            </div>
+                            <div class="slider-module rack-slider">
+                                <div class="slider-header">
+                                    <span class="slider-title">FIELD TURBULENCE</span>
+                                    <span id="rack-turb-val" class="slider-val">1.0x</span>
+                                </div>
+                                <div class="slider-track-wrap">
+                                    <input type="range" id="rack-slider-turb" min="0.1" max="2.0" step="0.05" value="1.0" class="mono-range">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2C: QR Banner Controls Rack -->
+                    <div id="scene-controls-qr" class="scene-rack-panel" style="display: none;">
+                        <div class="rack-info-box">
+                            <span class="hud-tag cyan">LOBBY ONBOARDING MODE</span>
+                            <p class="master-note" style="margin-top: 8px;">Directing audience to scan front-of-house QR code or visit local IP link.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Block 3: Emergency Stage Cues -->
+                <div class="master-block cues-block">
+                    <div class="master-block-header">EMERGENCY STAGE CUES</div>
+                    <div class="cues-row">
+                        <button type="button" class="mono-btn cue-danger-btn" id="cue-reset-btn">RESET ENGINE</button>
+                        <button type="button" class="mono-btn cue-danger-btn" id="cue-purge-btn">PURGE SLOTS</button>
+                    </div>
+                    <p class="master-note">Clears lingering entities and restores default simulation state.</p>
+                </div>
+            </div>
+
+            <!-- Column 2: Performance Core & Performer Matrix -->
+            <div class="master-col col-roster">
+                <div class="master-block roster-block" style="height: 100%;">
+                    <div class="master-block-header flex-between">
+                        <span>CONNECTED PERFORMER ROSTER</span>
+                        <span id="roster-count-badge" class="roster-pill">0 ACTIVE</span>
+                    </div>
+                    <div class="roster-table-wrap">
+                        <table class="mono-table">
+                            <thead>
+                                <tr>
+                                    <th>SLOT</th>
+                                    <th>IDENTIFIER</th>
+                                    <th>PALETTE</th>
+                                    <th>RTT</th>
+                                    <th>UPTIME</th>
+                                    <th>ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="master-roster-tbody">
+                                <!-- Injected strictly via textContent DOM creation -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column 3: Profile Switcher & Telemetry Observability -->
+            <div class="master-col col-telemetry">
+                <!-- Profile Switcher -->
                 <div class="master-block">
                     <div class="master-block-header">STAGE CONTROLLER PROFILE</div>
                     <div class="profile-switcher-buttons" id="master-profile-buttons">
@@ -316,17 +472,7 @@
                     <p class="master-note">Hot-reloads UI layout across all active performer screens.</p>
                 </div>
 
-                <!-- Block 3: Emergency Cues -->
-                <div class="master-block">
-                    <div class="master-block-header">EMERGENCY STAGE CUES</div>
-                    <div class="cues-row">
-                        <button type="button" class="mono-btn cue-danger-btn" id="cue-reset-btn">RESET ENGINE</button>
-                        <button type="button" class="mono-btn cue-danger-btn" id="cue-purge-btn">PURGE SLOTS</button>
-                    </div>
-                    <p class="master-note">Clears lingering entities and restores default simulation state.</p>
-                </div>
-
-                <!-- Block 4: Telemetry Monitor -->
+                <!-- Telemetry Monitor -->
                 <div class="master-block telemetry-hud-block">
                     <div class="master-block-header">SYSTEM OBSERVABILITY</div>
                     <div class="telemetry-metric-grid">
@@ -348,30 +494,27 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Performer Roster Table -->
-            <div class="master-block roster-block">
-                <div class="master-block-header flex-between">
-                    <span>CONNECTED PERFORMER ROSTER</span>
-                    <span id="roster-count-badge" class="roster-pill">0 ACTIVE</span>
-                </div>
-                <div class="roster-table-wrap">
-                    <table class="mono-table">
-                        <thead>
-                            <tr>
-                                <th>SLOT</th>
-                                <th>IDENTIFIER</th>
-                                <th>PALETTE</th>
-                                <th>RTT</th>
-                                <th>UPTIME</th>
-                                <th>ACTION</th>
-                            </tr>
-                        </thead>
-                        <tbody id="master-roster-tbody">
-                            <!-- Injected strictly via textContent DOM creation -->
-                        </tbody>
-                    </table>
+                <!-- Live Engine Health & Diagnostics -->
+                <div class="master-block diagnostics-block">
+                    <div class="master-block-header flex-between">
+                        <span>ENGINE DIAGNOSTICS</span>
+                        <span id="master-loopback-badge" class="hud-tag green">IPC OK</span>
+                    </div>
+                    <div class="diagnostics-content">
+                        <div class="diag-row">
+                            <span class="diag-label">ACTIVE SCENE:</span>
+                            <span id="diag-active-scene" class="diag-val">aquarium</span>
+                        </div>
+                        <div class="diag-row">
+                            <span class="diag-label">PROFILE SCHEMA:</span>
+                            <span id="diag-active-profile" class="diag-val">gamepad (7 controls)</span>
+                        </div>
+                        <div class="diag-row">
+                            <span class="diag-label">TOUCH PIPELINE:</span>
+                            <span class="diag-val text-green">60Hz PASSIVE FIFO</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
