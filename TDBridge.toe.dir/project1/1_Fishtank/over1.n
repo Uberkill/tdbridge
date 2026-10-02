@@ -1,0 +1,10 @@
+TOP:over
+tile 175 -995 130 90
+flags =  parlanguage 0
+inputs
+{
+0 	room_code_display
+1 	over_lighting
+}
+color 0.67 0.67 0.67 
+end

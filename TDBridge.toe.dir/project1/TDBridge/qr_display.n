@@ -1,0 +1,5 @@
+TOP:text
+tile 1840 -600 130 105
+flags =  picked on parlanguage 0
+color 0.67 0.67 0.67 
+end

@@ -1,0 +1,10 @@
+CHOP:merge
+tile 929 -521 130 90
+flags =  picked on parlanguage 0
+inputs
+{
+0 	sel_digital
+1 	lag_smoothing
+}
+color 0.67 0.67 0.67 
+end

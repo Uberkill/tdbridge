@@ -17,76 +17,58 @@
     <!-- ============================================================== -->
     <div id="gate">
         <div class="mono-card">
-            <!-- Header Block -->
+            <!-- Header Block (BIG & SMALL) -->
             <div class="mono-header">
-                <div class="status-pill">
-                    <span class="live-dot" id="gate-dot"></span>
-                    <span id="gate-telemetry">LINK READY // RTT: --</span>
-                </div>
-                <h1 id="brand-title">TDBRIDGE</h1>
-                <p id="brand-subtitle" class="subtitle">MULTI-USER PERFORMANCE SURFACE</p>
+                <h1 id="brand-title">MAIN STAGE</h1>
+                <p id="brand-subtitle" class="subtitle">LIVE PERFORMANCE GATE</p>
             </div>
 
             <div id="error-msg" class="error-banner" style="display: none;"></div>
 
-            <!-- Room Code Segmented Entry -->
-            <div class="section-label">ROOM IDENTIFIER</div>
-            <div class="room-code-wrapper" id="room-code-group">
-                <input type="text" class="code-box" id="code-0" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false">
-                <input type="text" class="code-box" id="code-1" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false">
-                <input type="text" class="code-box" id="code-2" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false">
-                <input type="text" class="code-box" id="code-3" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false">
-                <input type="hidden" id="room-code-input">
-            </div>
-
-            <!-- User Handle -->
-            <div class="section-label-row">
-                <span class="section-label">USER HANDLE</span>
-                <button type="button" id="random-name-btn" class="text-action-btn">RANDOM</button>
-            </div>
-            <div class="input-block">
-                <input type="text" id="player-name" placeholder="ENTER IDENTIFIER" maxlength="12" autocomplete="off" spellcheck="false">
-            </div>
-
-            <!-- Access Pathway Selector (Binary: Performer vs Spectator) -->
-            <div class="section-label-row">
-                <span class="section-label">ACCESS PATHWAY</span>
-                <span id="selected-role-name" class="color-indicator-text" style="color: var(--status-cyan);">PERFORMER</span>
-            </div>
-            <div class="role-selector-grid binary-grid">
-                <button type="button" class="role-select-btn is-active" data-role="performer">[ 01 // PERFORMER ]</button>
-                <button type="button" class="role-select-btn" data-role="audience">[ 02 // SPECTATOR ]</button>
-            </div>
-
-            <!-- Color Swatches (For Performer) -->
-            <div id="swatch-section">
-                <div class="section-label-row">
-                    <span class="section-label">STAGE PALETTE</span>
-                    <span id="selected-color-name" class="color-indicator-text">CYAN</span>
-                </div>
-                <div class="palette-grid" id="palette-swatches">
-                    <button type="button" class="swatch is-active" data-hex="#00f0ff" data-name="CYAN" style="background-color: #00f0ff;"></button>
-                    <button type="button" class="swatch" data-hex="#ff007f" data-name="MAGENTA" style="background-color: #ff007f;"></button>
-                    <button type="button" class="swatch" data-hex="#39ff14" data-name="LIME" style="background-color: #39ff14;"></button>
-                    <button type="button" class="swatch" data-hex="#ffaa00" data-name="AMBER" style="background-color: #ffaa00;"></button>
-                    <button type="button" class="swatch" data-hex="#8a2be2" data-name="PURPLE" style="background-color: #8a2be2;"></button>
-                    <button type="button" class="swatch" data-hex="#ff3b30" data-name="CRIMSON" style="background-color: #ff3b30;"></button>
-                    <button type="button" class="swatch" data-hex="#00e5ff" data-name="TEAL" style="background-color: #00e5ff;"></button>
-                    <button type="button" class="swatch" data-hex="#ffffff" data-name="WHITE" style="background-color: #ffffff;"></button>
+            <!-- Room Code Segmented Entry (BIG HIERARCHY) -->
+            <div class="field-group">
+                <div class="section-label">ROOM CODE</div>
+                <div class="room-code-wrapper" id="room-code-group">
+                    <input type="text" class="code-box" id="code-0" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="·">
+                    <input type="text" class="code-box" id="code-1" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="·">
+                    <input type="text" class="code-box" id="code-2" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="·">
+                    <input type="text" class="code-box" id="code-3" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="·">
+                    <input type="hidden" id="room-code-input">
                 </div>
             </div>
 
-            <!-- Connect Action Button -->
-            <button id="join-btn" class="mono-btn primary-action">
-                <span>CONNECT TO SURFACE</span>
+            <!-- Performer Callsign & Stage Color (MEDIUM HIERARCHY) -->
+            <div class="field-group">
+                <div class="section-label">CALLSIGN &amp; COLOR</div>
+                <div class="input-block-with-action">
+                    <input type="text" id="player-name" placeholder="ENTER CALLSIGN" maxlength="12" autocomplete="off" spellcheck="false">
+                    <button type="button" id="random-name-btn" class="micro-rnd-btn" title="Randomize callsign and color">&#x27F3; RND</button>
+                </div>
+                
+                <!-- Sleek, Non-Intrusive Stage Color Palette Ribbon (14px height) -->
+                <div class="palette-strip-container">
+                    <div class="palette-strip" id="palette-swatches">
+                        <button type="button" class="swatch-pill is-active" data-hex="#00f0ff" data-name="CYAN" style="--swatch-color: #00f0ff;" title="Cyan"></button>
+                        <button type="button" class="swatch-pill" data-hex="#ff007f" data-name="MAGENTA" style="--swatch-color: #ff007f;" title="Magenta"></button>
+                        <button type="button" class="swatch-pill" data-hex="#39ff14" data-name="LIME" style="--swatch-color: #39ff14;" title="Lime"></button>
+                        <button type="button" class="swatch-pill" data-hex="#ffaa00" data-name="AMBER" style="--swatch-color: #ffaa00;" title="Amber"></button>
+                        <button type="button" class="swatch-pill" data-hex="#8a2be2" data-name="PURPLE" style="--swatch-color: #8a2be2;" title="Purple"></button>
+                        <button type="button" class="swatch-pill" data-hex="#ff3b30" data-name="CRIMSON" style="--swatch-color: #ff3b30;" title="Crimson"></button>
+                        <button type="button" class="swatch-pill" data-hex="#00e5ff" data-name="TEAL" style="--swatch-color: #00e5ff;" title="Teal"></button>
+                        <button type="button" class="swatch-pill" data-hex="#ffffff" data-name="WHITE" style="--swatch-color: #ffffff;" title="White"></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Single Unambiguous Action Button (BIG HIERARCHY) -->
+            <button id="join-btn" class="mono-btn primary-action btn-enter-stage">
+                <span>ENTER STAGE</span>
                 <span class="arrow-glyph">&#8594;</span>
             </button>
-
-            <!-- Discreet FOH Operator Access Link -->
-            <div class="gate-footer">
-                <button type="button" id="open-master-modal-btn" class="text-action-link">[ // FOH OPERATOR CONSOLE ]</button>
-            </div>
         </div>
+
+        <!-- Covert FOH Operator Access Trigger (Invisible to Attendees) -->
+        <button type="button" id="open-master-modal-btn" class="covert-operator-trigger" title="FOH Operator Access">OP-ACCESS</button>
     </div>
 
     <!-- ============================================================== -->

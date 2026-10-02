@@ -1,0 +1,17 @@
+?
+radiusx 0 0.012
+radiusy 0 0.012
+centerx 17 0 "-0.65 + math.sin(absTime.seconds * 1.2 + 0.1) * 0.035"
+centery 17 0 "((absTime.seconds * float(parent(2).op('environment_controls').par.Bubblespeed) * 0.80 + 0.1) % 1.2) - 0.6"
+fillcolorr 0 0.7
+fillcolorg 0 0.9
+fillcolorb 0 1
+fillalpha 17 1 "0.4 * float(parent(2).op('environment_controls').par.Bubbleamount)"
+borderr 0 1
+borderg 0 1
+borderb 0 1
+borderalpha 17 1 "0.6 * float(parent(2).op('environment_controls').par.Bubbleamount)"
+borderwidth 0 1.5
+resolutionw 0 1280
+resolutionh 0 720
+?

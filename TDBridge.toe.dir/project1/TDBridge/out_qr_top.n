@@ -1,0 +1,9 @@
+TOP:out
+tile 2067 -600 130 105
+flags =  picked on parlanguage 0
+inputs
+{
+0 	qr_display
+}
+color 0.67 0.67 0.67 
+end

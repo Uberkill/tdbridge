@@ -1,0 +1,8 @@
+?
+pageindex 0 2
+colorr 16 0.04 op('environment_controls').par.Bgcolorr
+colorg 16 0.05 op('environment_controls').par.Bgcolorg
+colorb 16 0.1 op('environment_controls').par.Bgcolorb
+resolutionw 0 1280
+resolutionh 0 720
+?

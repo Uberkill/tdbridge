@@ -1,0 +1,7 @@
+?
+port 17 9000 parent().par.Portin
+splitmessage 0 on
+callbacks 0 bridge_osc_in_callbacks
+clamp 0 off
+maxlines 0 2000
+?

@@ -1,0 +1,6 @@
+POP:filein
+tile -50 0 130 90
+flags =  current on viewer 1 display on parlanguage 0
+color 0.67 0.67 0.67 
+view -1 4 0 1 1 1 38 4 0 2 3840 2 7 207 4883 0 0 0 -1 0 0 0 -1 0 0 0 -1 0 0 0 -1 0 0 0 10000 1 0 0 0 0 1 -1 1 1 0 4 "" "" "" ""
+end

@@ -1,0 +1,7 @@
+DAT:text
+tile 25 0 130 90
+flags =  picked on viewer 1 parlanguage 0
+color 0.67 0.67 0.67 
+dock bridge_osc_in
+view -1 8 0 1 1 1 0 -5.05071 0 0 1 1 0
+end

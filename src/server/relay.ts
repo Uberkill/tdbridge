@@ -52,6 +52,7 @@ let tdAvailableScenes: Array<{ id: string, label: string, index: number }> = [
     { id: 'qr', label: '[03] Room Code & QR Banner', index: 2 }
 ];
 let tdSceneHealth = '[HEALTHY // 2 SCENES LINKED]';
+let activeSessionName = 'MAIN STAGE';
 
 const app = express();
 app.use(express.json());
@@ -74,9 +75,15 @@ app.get('/branding', (req, res) => {
 app.get('/health', (req, res) => {
     const clientIp = req.socket.remoteAddress || '';
     const isLocal = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1' || clientIp === 'localhost';
+    const isTdConnected = (Date.now() - tdLastSeen < 3500) && (tdLastSeen > 0);
     res.json({ 
         status: 'ok', 
         uptime: Math.round(process.uptime()),
+        session_name: activeSessionName,
+        touchdesigner: {
+            is_connected: isTdConnected,
+            cook_fps: parseFloat(tdFPS) || 0.0
+        },
         ...(isLocal ? { room: ACTIVE_ROOM_CODE } : {})
     });
 });
@@ -103,6 +110,7 @@ app.get('/telemetry', (req, res) => {
             uptime_seconds: Math.round(process.uptime()),
             pid: process.pid,
             memory_rss_mb: Math.round(mem.rss / 1024 / 1024 * 10) / 10,
+            session_name: activeSessionName,
             active_profile: currentProfile,
             active_scene: activeScene,
             room_code: ACTIVE_ROOM_CODE
@@ -358,21 +366,40 @@ udpPort.on("message", (oscMsg: any) => {
         } else if (oscMsg.address === "/bridge/master_pin") {
             const rawPin = String(val ?? '').trim();
             if (/^[0-9a-zA-Z]{4,6}$/.test(rawPin)) {
-                ACTIVE_MASTER_PIN = rawPin;
-                addLog(`[SECURITY] Updated Master PIN (length ${rawPin.length})`);
+                if (rawPin !== ACTIVE_MASTER_PIN) {
+                    ACTIVE_MASTER_PIN = rawPin;
+                    addLog(`[SECURITY] Updated Master PIN (length ${rawPin.length})`);
+                }
             }
         } else if (oscMsg.address === "/td/scene_list") {
             try {
                 const parsed = typeof val === 'string' ? JSON.parse(val) : val;
                 if (parsed && Array.isArray(parsed.scenes)) {
-                    tdAvailableScenes = parsed.scenes;
-                    if (parsed.health) tdSceneHealth = String(parsed.health);
-                    broadcastRoster();
+                    const newScenesStr = JSON.stringify(parsed.scenes);
+                    const oldScenesStr = JSON.stringify(tdAvailableScenes);
+                    const newHealth = parsed.health ? String(parsed.health) : tdSceneHealth;
+                    if (newScenesStr !== oldScenesStr || newHealth !== tdSceneHealth) {
+                        tdAvailableScenes = parsed.scenes;
+                        tdSceneHealth = newHealth;
+                        broadcastRoster();
+                    }
                 }
             } catch (e) {}
         } else if (oscMsg.address === "/td/scene_health") {
-            tdSceneHealth = String(val ?? '');
-            broadcastRoster();
+            const newHealth = String(val ?? '');
+            if (newHealth !== tdSceneHealth) {
+                tdSceneHealth = newHealth;
+                broadcastRoster();
+            }
+        } else if (oscMsg.address === "/td/session_name") {
+            const rawName = String(val ?? '').trim();
+            const cleanName = rawName.replace(/[^a-zA-Z0-9 _-]/g, '').trim().substring(0, 32);
+            if (cleanName && cleanName !== activeSessionName) {
+                activeSessionName = cleanName;
+                addLog(`[SESSION] Dynamic session name updated: "${activeSessionName}"`);
+                broadcastSessionUpdate();
+                requestRedraw();
+            }
         } else if (oscMsg.address === "/bridge/set_blueprint") {
             try {
                 const rawJson = typeof val === 'string' ? JSON.parse(val) : val;
@@ -641,6 +668,7 @@ function getRosterPayload() {
     }
     return {
         type: 'roster_update',
+        session_name: activeSessionName,
         performers,
         spectator_count: audienceSockets.size,
         master_count: masterSockets.size,
@@ -662,6 +690,34 @@ function broadcastRoster() {
             try { mWs.send(payload); } catch (e) {}
         }
     }
+}
+
+function broadcastSessionUpdate() {
+    const payload = JSON.stringify({
+        type: 'session_update',
+        session_name: activeSessionName
+    });
+    for (const slot of slots) {
+        if (slot.ws && slot.ws.readyState === WebSocket.OPEN) {
+            try { slot.ws.send(payload); } catch (e) {}
+        }
+    }
+    for (const ws of audienceSockets) {
+        if (ws.readyState === WebSocket.OPEN) {
+            try { ws.send(payload); } catch (e) {}
+        }
+    }
+    for (const ws of masterSockets.keys()) {
+        if (ws.readyState === WebSocket.OPEN) {
+            try { ws.send(payload); } catch (e) {}
+        }
+    }
+    for (const ws of unauthenticatedSockets) {
+        if (ws.readyState === WebSocket.OPEN) {
+            try { ws.send(payload); } catch (e) {}
+        }
+    }
+    broadcastRoster();
 }
 
 // Regex Whitelists for Security
@@ -763,6 +819,7 @@ wss.on('connection', (ws: WebSocket, req) => {
                     type: 'master_login_success', 
                     token: sessionToken,
                     room: ACTIVE_ROOM_CODE,
+                    session_name: activeSessionName,
                     profile: currentProfile,
                     active_scene: activeScene,
                     available_scenes: tdAvailableScenes,
@@ -885,7 +942,7 @@ wss.on('connection', (ws: WebSocket, req) => {
                 // Pathway 2: Interactive Performer (Claims human slot 6-100)
                 const assignedIndex = getAvailableSlot();
                 if (assignedIndex === -1) {
-                    ws.send(JSON.stringify({ type: 'rejected', reason: 'All performer slots are occupied (Room Full)' }));
+                    ws.send(JSON.stringify({ type: 'rejected', reason: 'STAGE FULL // ALL 95 PERFORMER SLOTS ACTIVE' }));
                     ws.close(4002, 'Room Full');
                     return;
                 }
@@ -915,6 +972,7 @@ wss.on('connection', (ws: WebSocket, req) => {
                 ws.send(JSON.stringify({ 
                     type: 'assigned_slot', 
                     slot: playerNum,
+                    session_name: activeSessionName,
                     profile: currentProfile,
                     profile_type: BUILTIN_PROFILES[currentProfile]?.type || 'custom',
                     active_scene: activeScene,

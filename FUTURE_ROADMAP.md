@@ -6,11 +6,11 @@ This document serves as the authoritative architectural record of completed mile
 
 ## Milestone 1: Swiss Graphic Monolith Design System & Onboarding Ergonomics (COMPLETED & LIVE)
 - [x] **Swiss Graphic Monolith UI**: High-contrast brutalist gallery styling (`#000000` / `#ffffff`, 2px stark framing, zero fake AI badges/gradients, pure Space Grotesk display typography and JetBrains Mono telemetry).
-- [x] **Omni-Device Layout**: Optimized viewports for mobile phones (portrait single-thumb ergonomically mapped touch zones), tablets / iPads (dual-column split workstation), and desktop workstations (WASD / 1-4 hotkey mapping).
-- [x] **Frictionless Onboarding Gate (`#gate`)**:
-  - Auto-room-code detection from URL parameter (`?room=LG7U`) and fallback pre-fill via `/room` REST endpoint.
-  - 4-box segmented room code display with automatic character advancement, backspace retreat, and clipboard paste handling.
-  - High-precision handle generator and 8-color neon stage palette selector (Cyan, Magenta, Lime, Amber, Purple, Crimson, Teal, White) synchronized with TouchDesigner performer hues.
+- [x] **Single-Action Performer Onboarding**:
+  - Eliminated role confusion: every attendee enters directly as an interactive performer via `[ ENTER STAGE -> ]`.
+  - Auto-room-code detection from URL parameter (`?room=LG7U`).
+  - 4-box segmented room code display with automatic character advancement and backspace retreat.
+  - Callsign handle generator with integrated muted randomizer `[ ⟳ RND ]` and 8-color stage palette ribbon.
 - [x] **Real Network Telemetry (No Fakes)**:
   - Client-side WebSocket ping/pong round-trip latency loop (`performance.now()`).
   - Real-time link health pills (`RTT: 14ms // SYNC`, `RTT: 68ms // WI-FI`, `RTT: TIMEOUT // LOSS`).
@@ -19,55 +19,59 @@ This document serves as the authoritative architectural record of completed mile
 
 ---
 
-## Milestone 2: Role-Based Access Control (RBAC) & TouchDesigner Schema Alignment (COMPLETED & LIVE)
-- [x] **3-Tier Role Hierarchy**:
-  - **Tier 1: Master Operator Console (`02 // MASTER CONSOLE`)**:
-    - Front-of-House (FOH) broadcast dashboard for show directors.
-    - Global scene switcher (`AQUARIUM`, `CANVAS`, `KINETIC` / `QR`) broadcasting `/bridge/scene` OSC to TouchDesigner's `switch_preview`.
-    - Emergency stage cues: `RESET ENGINE` (`/bridge/reset`) and `PURGE SLOTS`.
-    - Live Performer Roster table with live slot numbers, handle names, color indicators, real RTT readouts, and individual remote kick actions.
-  - **Tier 2: Performer Controller Surface (`01 // PERFORMER`)**:
-    - Dedicated allocation to TouchDesigner human slots (slots 6–100).
-    - 4 action trigger buttons strictly mapped to TouchDesigner logic:
-      - `b1`: Rotate 360°
-      - `b2`: Color Swap (cycles stage palette)
-      - `b3`: Feed Fish (spawns real-time physics food pellets via `food_manager`)
-      - `b4`: Special / Scare (triggers environment reaction)
-    - Precision dual sliders:
-      - `s1`: Swim Speed (0.0 .. 1.0)
-      - `s2`: Scale / Size (0.35 .. 0.95)
-  - **Tier 3: Audience Spectator Hype Surface (`03 // AUDIENCE`)**:
-    - Zero slot consumption (unlimited audience members connect simultaneously without filling player slots 6–100).
-    - High-energy interactive BPM Tap Tempo synchronizer (calculates moving-average BPM from crowd taps).
-    - 4-channel crowd reaction matrix (`fire`, `bolt`, `heart`, `party`) emitting instant audience bursts to TouchDesigner.
-- [x] **Extensible Swiss Component Catalog**:
-  - Industrial 270° rotary stepper dial (`.mono-dial`) with SVG arc tracking and numeric readout.
-  - 12-segment vertical VU peak meter (`.mono-vu-fader`) with dB scale tick marks and gradient illumination.
-  - 3-way segmented state toggles (`.mono-toggle`) with tactile binary inversion.
-- [x] **TouchDesigner Engine Invariant Fix**:
-  - Verified and locked `out_players_chop` to **13 channels x 100 samples** by configuring `lag_smoothing.par.timeslice = False`.
+## Milestone 2: Hybrid Multi-Scene Show Control & Dynamic Blueprint Engine (COMPLETED & LIVE)
+- [x] **Dedicated FOH Master Operator Console (`#master-ui`)**:
+  - Full-bleed 3-column workstation layout scaling across 1080p, 1440p, and 4K displays.
+  - Global show scene switcher (`AQUARIUM`, `CANVAS`, `QR`) broadcasting `/bridge/scene` OSC to TouchDesigner's `switch_preview`.
+  - Scene-adaptive environment controls rack (Aquarium bot controls, Canvas trail persistence, and dynamic custom parameters).
+  - Live Performer Roster table with live slot numbers, handle names, color indicators, real RTT readouts, and individual remote kick actions.
+  - Emergency stage cues: `RESET ENGINE` (`/bridge/reset`) and `PURGE SLOTS`.
+- [x] **Dynamic Blueprint Engine (Performer Surface)**:
+  - Purged hardcoded HTML labels. Controls morph dynamically to match the active scene (`gamepad` for Aquarium, `touchpad` for Canvas, `faderbank` for DJ mixer, `audience` for Hype).
+  - In-memory DOM pool reuses element IDs (`#btn-b1`–`#btn-b4`, `#slider-s1`–`#slider-s4`) ensuring 100% test and OSC stability.
+- [x] **TouchDesigner Engine Invariant Contracts**:
+  - Verified and locked `out_players_chop` to **13 channels x 100 samples**.
   - Maintained `players_data` table at fixed 101 rows (row 0 header + rows 1–100).
   - Maintained passive FIFO `bridge_osc_in` with `callbacks = ''` drained per frame by `osc_processor`.
 
 ---
 
-## Milestone 3: Zero-Code TouchDesigner Designer Interface & Dynamic Blueprints (UPCOMING)
-- [ ] **`ui_blueprint` TableDAT in `TDBridge`**:
-  - Native TouchDesigner table where visual artists configure UI controls (`id`, `type`, `label`, `color`, `min`, `max`, `step`) without editing web or TypeScript code.
-- [ ] **`Push Blueprint` Pulse Parameter**:
-  - Single pulse button on `TDBridge` COMP that serializes `ui_blueprint` to compact JSON and sends `/bridge/set_blueprint` to UDP port 9001, instantly hot-reloading all mobile screens live.
-- [ ] **WebRTC Low-Latency Video Return**:
-  - Stream TouchDesigner's `final_out` directly back to connected mobile phones via WebRTC (or H.264 ultra-low-latency stream) so performers view their visual impact on their phone screen with <50ms glass-to-glass delay.
+## Milestone 3: Self-Healing Network, Dynamic Branding & Universal 4K Scaling (COMPLETED & LIVE)
+- [x] **1-Click Self-Healing Scene Engine (`scene_manager.py`)**:
+  - `[Audit & Self-Heal Network]`: Automatically scans `/project1` for scene COMPs, attaches `select_bridge` (`selectCHOP`) for player data, and wires video `out1` (`outTOP`) to `switch_preview`.
+  - `[Create Scene Template]`: Instantly scaffolds a new generative Base COMP in 1 click.
+  - Failover blackout protection: Falls back safely to `out_qr_top` if an active scene is deleted or errors.
+- [x] **Dynamic Session Branding from TouchDesigner**:
+  - `Sessionname` custom parameter on `TDBridge` emits `/td/session_name` via OSC.
+  - Synchronizes the web client title (`#brand-title`) and the stage QR display (`out_qr_top`) live without server restarts.
+- [x] **Universal 4K UHD & Multi-Device Fluid Tokens**:
+  - Fluid token architecture across 5 breakpoints (`<768px`, `768px`, `1024px`, `1920px`, `2560px+`).
+  - 4K monitors render an expansive 1075px monolith card; mobile screens preserve touch targets $\ge 44\text{px}$.
+  - Centering and scroll protection eliminating header clipping on landscape phones.
+- [x] **Covert Front-of-House (FOH) Access**:
+  - Subtle `OP-ACCESS` micro-trigger at bottom-right (`opacity: 0.15`), `Ctrl+Shift+O`, `~` shortcut, or `?key=1234` URL param.
+- [x] **Telemetry Stability & Heartbeat Guards**:
+  - Value-change guards in `relay.ts` on `/bridge/master_pin`, `/td/scene_list`, and `/td/scene_health` eliminate terminal spam and ring buffer eviction.
+- [x] **Codebase Knowledge Graph (Graphify)**:
+  - Persistent knowledge graph indexing 84 communities, D3 interactive map (`graph.html`), and query CLI.
 
 ---
 
-## Milestone 4: Show Automation & Multi-Venue Enterprise Ecosystem (FUTURE)
+## Milestone 4: WebRTC Ultra-Low-Latency Video Return (UPCOMING)
+- [ ] **WebRTC Video Return Stream**:
+  - Stream TouchDesigner's `switch_preview` directly back to connected mobile phones via WebRTC (or ultra-low-latency H.264) so performers view their visual impact on their phone screen with <50ms glass-to-glass delay.
+- [ ] **Selective Stage Camera PiP**:
+  - Optional picture-in-picture window on performer phones showing the live stage or crowd reaction.
+
+---
+
+## Milestone 5: Multi-Room Venue Federation & Show Automation (FUTURE)
+- [ ] **Multi-Room Venue Federation**:
+  - Dynamic QR code venue routing: one entrance QR routes attendees to sub-rooms (Room A = Fishtank, Room B = Particle Ribbons, Room C = Laser Synth) based on capacity and load balancing.
 - [ ] **Master Show Sequencer**:
   - Automatic performance transitions:
     - *Lobby Phase:* Fullscreen QR code + ambient autonomous bots on projector.
     - *Play Phase:* Audience joins, controls interactive visuals.
-    - *Climax Phase:* Auto-morph profile to Audience Beat Pulser + trigger generative audio-reactive shaders.
-- [ ] **Multi-Room Federation**:
-  - Dynamic QR code venue routing: one entrance QR routes attendees to sub-rooms (Room A = Fishtank, Room B = Particle Ribbons, Room C = Laser Synth) based on load balancing.
+    - *Climax Phase:* Auto-morph profile to High-Entropy Particle Storm + trigger generative audio-reactive shaders.
 - [ ] **External Show Control Bridges**:
   - Native Ableton Link tempo sync, Resolume Arena OSC routing, and DMX / Art-Net lighting cue integration.

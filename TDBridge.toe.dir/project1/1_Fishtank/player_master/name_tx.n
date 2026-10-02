@@ -1,0 +1,9 @@
+TOP:transform
+tile 104 432 130 90
+flags =  current on parlanguage 0
+inputs
+{
+0 	name_tag
+}
+color 0.67 0.67 0.67 
+end

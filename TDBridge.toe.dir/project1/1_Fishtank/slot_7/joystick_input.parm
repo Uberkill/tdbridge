@@ -1,0 +1,12 @@
+?
+dat 0 select_user
+extractrows 0 byindex
+rowindexend 16 0 "me.inputTable.numRows - 1"
+rowexpr 0 ""
+extractcols 0 byindex
+colindexstart 0 14
+colindexend 16 15 "me.inputTable.numCols - 1"
+colexpr 0 ""
+output 0 chanpercol
+firstcolumn 0 values
+?

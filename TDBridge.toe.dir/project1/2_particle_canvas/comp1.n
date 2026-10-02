@@ -1,0 +1,11 @@
+TOP:comp
+tile 1906 -800 130 90
+flags =  parlanguage 0
+inputs
+{
+0 	render1
+1 	level1
+}
+color 0.67 0.67 0.67 
+view -1 3 0 0 1 4 0 1 0 0 0
+end

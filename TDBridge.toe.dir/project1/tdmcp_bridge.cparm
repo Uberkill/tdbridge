@@ -1,0 +1,10 @@
+?
+pages 1 Interactions
+772804868 Interactionid "Request ID" 1 1 0 0 1 1 1 2 0 "" "" Interactions 0
+772804868 Interactionstatus Status 1 1 0 0 1 1 1 2 0 "" "" Interactions 1
+772804868 Interactiontitle Decision 1 1 0 0 1 1 1 2 0 "" "" Interactions 2
+772804868 Interactionprompt Impact 1 1 0 0 1 1 1 2 0 "" "" Interactions 3
+772804879 Interactionchoice Choice 1 1 0 0 1 1 1 2 0 "" "" Interactions 4097 1 Keep Keep 4
+772804869 Interactionresolve "Apply Choice" 1 1 0 0 1 1 1 2 0 "" "" Interactions 5
+772804869 Interactioncancel "Safe Close" 1 1 0 0 1 1 1 2 0 "" "" Interactions 6
+?

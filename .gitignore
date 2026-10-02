@@ -6,4 +6,6 @@ __pycache__/
 scratch_debug/
 .relay.pid
 Backup/
+graphify-out/.graphify_*.json
+graphify-out/cache/
 

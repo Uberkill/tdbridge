@@ -1,0 +1,13 @@
+?
+pageindex 0 1
+text 17 derivative "'CODE: ' + (str(b.par.Roomcode.eval()) if (b := (op('/project1/TDBridge') or next((c for c in parent().parent().children if 'bridge' in c.name.lower() and hasattr(c.par, 'Roomcode')), None))) else '')"
+fontsizex 0 12.1
+positionx 0 -0.45
+positiony 0 0.45
+linespacing 0 0.5
+alignx 0 left
+aligny 0 top
+resolutionw 0 1280
+resolutionh 0 720
+resmult 0 off
+?

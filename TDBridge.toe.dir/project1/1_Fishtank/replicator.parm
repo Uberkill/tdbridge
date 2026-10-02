@@ -1,0 +1,10 @@
+?
+pageindex 0 2
+numreplicants 0 5
+template 0 select_active
+namefromtable 0 colbyname
+colname 0 client
+opprefix 0 ""
+master 0 player_master
+callbacks 0 replicator_callbacks
+?

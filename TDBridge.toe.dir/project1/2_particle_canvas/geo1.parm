@@ -1,0 +1,15 @@
+?
+instancing 0 on
+instanceop 0 particle_engine
+instancetx 0 tx
+instancety 0 ty
+instancetz 0 tz
+instancesx 0 scale
+instancesy 0 scale
+instancesz 0 scale
+instancecolorop 0 particle_engine
+instancer 0 r
+instanceg 0 g
+instanceb 0 b
+material 0 mat_glow
+?

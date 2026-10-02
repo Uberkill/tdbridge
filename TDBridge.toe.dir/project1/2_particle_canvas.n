@@ -1,0 +1,6 @@
+COMP:base
+v -359.004 1214.05 0.958084
+tile 75 100 151 123
+flags =  picked on current on parlanguage 0
+color 0.67 0.67 0.67 
+end

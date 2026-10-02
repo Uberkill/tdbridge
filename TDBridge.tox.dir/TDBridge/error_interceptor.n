@@ -1,0 +1,5 @@
+DAT:error
+tile 700 0 130 90
+flags =  picked on parlanguage 0
+color 0.67 0.67 0.67 
+end

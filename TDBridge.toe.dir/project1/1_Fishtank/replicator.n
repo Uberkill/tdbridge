@@ -1,0 +1,6 @@
+COMP:replicator
+v 898.741 497.692 0.0780333
+tile 975 75 160 130
+flags =  picked on current on parlanguage 0
+color 0.67 0.67 0.67 
+end

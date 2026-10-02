@@ -1,0 +1,9 @@
+DAT:out
+tile 1612 -600 130 90
+flags =  picked on parlanguage 0
+inputs
+{
+0 	players_data
+}
+color 0.67 0.67 0.67 
+end

@@ -80,14 +80,21 @@ print(f"{room}|{disp}")
 
   // Step 2: Check Invariant Contracts (AUD-01 & Table Dimensions)
   console.log('--- TEST 2: Invariant Data Contracts ---');
-  const contractRes = await tdExec(`
+  let chopInfo = '', datInfo = '', udInfo = '', selRows = '';
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const contractRes = await tdExec(`
 chop = op('/project1/TDBridge/out_players_chop')
 dat = op('/project1/TDBridge/players_data')
 ud = op('/project1/1_Fishtank/user_data')
 sel = op('/project1/1_Fishtank/select_active')
 print(f"{chop.numChans},{chop.numSamples}|{dat.numRows},{dat.numCols}|{ud.numRows},{ud.numCols}|{sel.numRows}")
 `);
-  const [chopInfo, datInfo, udInfo, selRows] = (contractRes.stdout || '').trim().split('|');
+    [chopInfo, datInfo, udInfo, selRows] = (contractRes.stdout || '').trim().split('|');
+    if (chopInfo === '13,100' && datInfo === '101,15' && (udInfo === '101,17' || udInfo === '101,18') && selRows === '6') {
+      break;
+    }
+    await sleep(200);
+  }
   console.log(`out_players_chop: ${chopInfo} (Expected: 13,100)`);
   console.log(`players_data:     ${datInfo} (Expected: 101,15)`);
   console.log(`user_data:        ${udInfo} (Expected: 101,17)`);

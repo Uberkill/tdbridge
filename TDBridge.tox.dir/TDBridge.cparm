@@ -1,0 +1,24 @@
+?
+pages 1 TDBridge
+772804879 Profile "Controller Profile" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 4097 5 gamepad "Gamepad & Actions" touchpad "Touchpad & Canvas" faderbank "Fader Bank Mixer" audience "Audience Hype & Reactions" custom "Custom Blueprint" 5
+772804868 Roomcode "Room Code" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 1
+772804868 Status Status 1 1 0 0 1 1 1 2 0 "" "" TDBridge 0
+772804866 Maxplayers "Max Players" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 7
+772804866 Portin "OSC Port In" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 8
+772804866 Portout "OSC Port Out" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 9
+772804865 Smoothing "Motion Smoothing (Lag)" 1 1 0 0 1 1 0.5 2 0 "" "" TDBridge 10
+772804869 Resetplayers "Reset All Players" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 6
+772804869 Opencontroller "Open Mobile Web Controller" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 4
+772804869 Startserver "Start Relay Server" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 2
+772804869 Stopserver "Stop Relay Server" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 3
+772804868 Lasterror "Last Engine Error" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 11
+772804868 Tunnelurl "Public Tunnel URL" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 12
+772804868 Mastercode "Master Code" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 13
+772804879 Activescene "Active Scene" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 4097 4 aquarium "[01] Interactive Aquarium" canvas "[02] Generative Particle Canvas" 3_generativevisuals "[03] Generativevisuals" qr "[04] Room Code & QR Banner" 14
+772804869 Autolink "Audit & Self-Heal Scenes" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 15
+772804869 Newscene "Create Scene Template" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 16
+772804869 Openmaster "Open Master Console" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 17
+772804868 Masterpin "Master PIN (4-Digit)" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 18
+772804868 Scenehealth "Scene Network Health" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 19
+772804868 Sessionname "Session Name" 1 1 0 0 1 1 1 2 0 "" "" TDBridge 20
+?

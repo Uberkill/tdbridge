@@ -1,0 +1,18 @@
+?
+pages 3 "Fish & Bots" "Water & Atmosphere" "Feeding & Interaction"
+772804866 Numbots "Number of Bots" 1 3 0 0 3 5 1 2 5 "" "" "Fish & Bots" 0
+772804865 Botscalemult "Bot Size Multiplier" 1 1 0.4 0 1 2 1 2 1 "" "" "Fish & Bots" 1
+772804865 Playerscalemult "Player Size Multiplier" 1 1 0.4 0 1 2 1 2 1 "" "" "Fish & Bots" 2
+772804865 Botspeed "Bot Swimming Speed" 1 1 0.05 0 1 0.5 1 2 0.15 "" "" "Fish & Bots" 3
+772804865 Tailwiggle "Tail Wiggle Angle" 1 1 0 0 1 10 1 2 3.5 "" "" "Fish & Bots" 4
+772804865 Wanderboundsx "Aquarium Bounds X" 1 1 0.4 0 1 0.85 1 2 0.72 "" "" "Fish & Bots" 5
+772804865 Wanderboundsy "Aquarium Bounds Y" 1 1 0.2 0 1 0.45 1 2 0.38 "" "" "Fish & Bots" 6
+772804869 Resetbots "Reset Bot Positions" 1 1 0 0 1 1 1 2 0 "" "" "Fish & Bots" 7
+772804869 Scarefishes "Scare / Scatter Fishes" 1 1 0 0 1 1 1 2 0 "" "" "Fish & Bots" 8
+772809729 Bgcolor "Ocean Background Color" 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 2 0 "" "" 2 0 "" "" 2 0 "" "" 2 0 "" "" "Water & Atmosphere" 9
+772804865 Bubbleamount "Bubble Density" 1 1 0 0 1 1 1 2 0.6 "" "" "Water & Atmosphere" 10
+772804865 Bubblespeed "Bubble Rising Speed" 1 1 0.05 0 1 0.4 1 2 0.15 "" "" "Water & Atmosphere" 11
+772804865 Causticintensity "Caustics & Glow Intensity" 1 1 0 0 1 1 1 2 0.35 "" "" "Water & Atmosphere" 12
+772804869 Dropfood "Drop Food Pellets" 1 1 0 0 1 1 1 2 0 "" "" "Feeding & Interaction" 13
+772804866 Foodcount "Active Food Pellets" 1 1 0 0 1 1 1 2 0 "" "" "Feeding & Interaction" 14
+?

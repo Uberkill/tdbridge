@@ -1,0 +1,7 @@
+?
+rotate 17 0 "float(op('select_user')[1, 'rotate_vis'].val if (op('select_user').numRows > 1 and op('select_user')[1, 'rotate_vis'].val != '') else 0)"
+sx 17 1 "-1.0 if (op('select_user').numRows > 1 and float(op('select_user')[1, 'joystick_x'].val or 0) < -0.05) else 1.0"
+sy 0 1
+resolutionw 0 1280
+resolutionh 0 720
+?

@@ -1,0 +1,12 @@
+?
+type 0 perlin3d
+period 0 0.24
+rough 0 0.65
+exp 0 2.4
+tx 0 0
+ty 0 0
+tz 17 0 "absTime.seconds * 0.16"
+outputresolution 0 custom
+resolutionw 0 1280
+resolutionh 0 720
+?

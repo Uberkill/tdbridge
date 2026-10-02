@@ -1,0 +1,9 @@
+?
+pageindex 0 4
+text 17 "`op('select_user')[0,1].val if op('select_user').numRows > 0 and op('select_user').numCols > 1 else 'Player'`" "op('select_user')[1, 'name'].val if (op('select_user').numRows > 1 and op('select_user')[1, 'name'].val != '') else 'Player'"
+bold 0 on
+fontsizex 0 20
+resolutionw 0 1280
+resolutionh 0 720
+resmult 0 off
+?

@@ -208,58 +208,83 @@ function updateRoomCodeValue() {
         masterRoomInput.value = code;
     return code;
 }
-// Random Handle Generator
+// Random Handle & Stage Color Generator
 const HANDLE_PREFIXES = ['NODE', 'VECTOR', 'AERO', 'PULSE', 'SIGNAL', 'VERTEX', 'MODEM', 'NEXUS'];
-function generateRandomHandle() {
+const swatchPills = document.querySelectorAll('.swatch-pill, .swatch');
+function selectSwatch(pill) {
+    swatchPills.forEach(other => other.classList.remove('is-active'));
+    pill.classList.add('is-active');
+    selectedColorHex = pill.getAttribute('data-hex') || '#00f0ff';
+    selectedColorName = pill.getAttribute('data-name') || 'CYAN';
+    if (slotDot)
+        slotDot.style.backgroundColor = selectedColorHex;
+    if (puckCenterDot)
+        puckCenterDot.style.backgroundColor = selectedColorHex;
+}
+swatchPills.forEach(pill => {
+    pill.addEventListener('click', () => selectSwatch(pill));
+});
+function generateRandomHandleAndColor() {
     const pre = HANDLE_PREFIXES[Math.floor(Math.random() * HANDLE_PREFIXES.length)];
     const num = Math.floor(Math.random() * 90 + 10);
-    nameInput.value = `${pre}_${num}`;
+    if (nameInput)
+        nameInput.value = `${pre}_${num}`;
+    // Also randomly assign a stage color!
+    if (swatchPills.length > 0) {
+        const randIdx = Math.floor(Math.random() * swatchPills.length);
+        selectSwatch(swatchPills[randIdx]);
+    }
 }
 if (randomNameBtn) {
-    randomNameBtn.addEventListener('click', generateRandomHandle);
+    randomNameBtn.addEventListener('click', generateRandomHandleAndColor);
 }
-// Color Swatch Selection
-const swatches = document.querySelectorAll('.swatch');
-const selectedColorLabel = document.getElementById('selected-color-name');
-swatches.forEach(s => {
-    s.addEventListener('click', () => {
-        swatches.forEach(other => other.classList.remove('is-active'));
-        s.classList.add('is-active');
-        selectedColorHex = s.getAttribute('data-hex') || '#00f0ff';
-        selectedColorName = s.getAttribute('data-name') || 'CYAN';
-        if (selectedColorLabel) {
-            selectedColorLabel.innerText = selectedColorName;
-            selectedColorLabel.style.color = selectedColorHex;
-        }
-        if (slotDot)
-            slotDot.style.backgroundColor = selectedColorHex;
-        if (puckCenterDot)
-            puckCenterDot.style.backgroundColor = selectedColorHex;
-    });
-});
-// Binary Pathway Selection in Gate ([01 // PERFORMER] vs [02 // SPECTATOR])
-const gateRoleBtns = document.querySelectorAll('.role-select-btn');
-const selectedRoleName = document.getElementById('selected-role-name');
-gateRoleBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        gateRoleBtns.forEach(b => b.classList.remove('is-active'));
-        btn.classList.add('is-active');
-        const role = btn.getAttribute('data-role');
-        currentRole = (role === 'audience' || role === 'spectator') ? 'audience' : 'performer';
-        if (selectedRoleName)
-            selectedRoleName.innerText = currentRole.toUpperCase();
-        if (swatchSection) {
-            swatchSection.style.display = currentRole === 'performer' ? 'block' : 'none';
-        }
-    });
+// Auto-assign random handle and color on boot if empty
+if (nameInput && !nameInput.value) {
+    generateRandomHandleAndColor();
+}
+function updateSessionName(name) {
+    const brandTitle = document.getElementById('brand-title');
+    if (brandTitle && name) {
+        const cleanName = String(name).replace(/[^a-zA-Z0-9 _-]/g, '').trim().toUpperCase();
+        if (cleanName)
+            brandTitle.textContent = cleanName;
+    }
+}
+function updateGateTelemetry(isConnected, fps) {
+    const gateTel = document.getElementById('gate-telemetry');
+    const gateDot = document.getElementById('gate-dot');
+    if (!gateTel || !gateDot)
+        return;
+    if (isConnected && fps > 0) {
+        gateTel.textContent = `ONLINE // ${fps.toFixed(1)} FPS LINK`;
+        gateDot.style.backgroundColor = fps >= 45 ? 'var(--status-green)' : 'var(--status-amber)';
+    }
+    else if (isConnected) {
+        gateTel.textContent = `STANDBY // LINK PENDING`;
+        gateDot.style.backgroundColor = 'var(--status-amber)';
+    }
+    else {
+        gateTel.textContent = `STANDBY // TD OFFLINE`;
+        gateDot.style.backgroundColor = 'var(--status-amber)';
+    }
+}
+// Fetch real bootstrap telemetry and session name
+fetch(`${httpUrlBase}/health`)
+    .then(r => r.json())
+    .then(data => {
+    if (data.session_name)
+        updateSessionName(data.session_name);
+    if (data.touchdesigner) {
+        updateGateTelemetry(data.touchdesigner.is_connected, data.touchdesigner.cook_fps);
+    }
+})
+    .catch(() => {
+    updateGateTelemetry(false, 0);
 });
 fetch(`${httpUrlBase}/branding`)
     .then(r => r.json())
     .then(b => {
-    const brandTitle = document.getElementById('brand-title');
     const brandSub = document.getElementById('brand-subtitle');
-    if (brandTitle && b.project_name)
-        brandTitle.innerText = b.project_name.toUpperCase();
     if (brandSub && b.subtitle)
         brandSub.innerText = b.subtitle.toUpperCase();
 })
@@ -276,6 +301,14 @@ if (openMasterModalBtn) {
             masterErrorMsg.style.display = 'none';
         masterAuthModal.style.display = 'flex';
         masterKeyInput.focus();
+    });
+    window.addEventListener('keydown', (e) => {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
+            return;
+        if ((e.ctrlKey && e.shiftKey && (e.key === 'O' || e.key === 'o')) || e.key === '~') {
+            e.preventDefault();
+            openMasterModalBtn.click();
+        }
     });
 }
 if (masterAuthCancelBtn) {
@@ -333,7 +366,7 @@ joinBtn.addEventListener('click', () => {
     reconnectAttempts = 0;
     let raw = nameInput.value.trim().toUpperCase();
     if (!raw) {
-        generateRandomHandle();
+        generateRandomHandleAndColor();
         raw = nameInput.value;
     }
     playerName = raw.substring(0, 12);
@@ -342,6 +375,7 @@ joinBtn.addEventListener('click', () => {
         showError("PLEASE ENTER 4-CHARACTER ROOM CODE");
         return;
     }
+    currentRole = 'performer';
     hideError();
     if ('wakeLock' in navigator) {
         try {
@@ -351,19 +385,11 @@ joinBtn.addEventListener('click', () => {
     }
     gate.style.display = 'none';
     ui.style.display = 'flex';
-    if (currentRole === 'performer') {
-        if (viewPerformer)
-            viewPerformer.style.display = 'flex';
-        if (viewAudience)
-            viewAudience.style.display = 'none';
-        resizeCanvas();
-    }
-    else {
-        if (viewPerformer)
-            viewPerformer.style.display = 'none';
-        if (viewAudience)
-            viewAudience.style.display = 'flex';
-    }
+    if (viewPerformer)
+        viewPerformer.style.display = 'flex';
+    if (viewAudience)
+        viewAudience.style.display = 'none';
+    resizeCanvas();
     connectWS(room);
 });
 exitBtn.addEventListener('click', disconnectSession);
@@ -451,7 +477,18 @@ function attachWebSocketHandlers() {
             }
             // Live Performer Roster Update (Streamed to Master Console)
             if (data.type === 'roster_update') {
+                if (data.session_name)
+                    updateSessionName(data.session_name);
+                if (typeof data.td_fps !== 'undefined') {
+                    updateGateTelemetry(Boolean(data.td_connected), parseFloat(data.td_fps) || 0);
+                }
                 handleRosterUpdate(data);
+                return;
+            }
+            // Dynamic Session Name Update
+            if (data.type === 'session_update') {
+                if (data.session_name)
+                    updateSessionName(data.session_name);
                 return;
             }
             // Scene Switched Broadcast (from TouchDesigner or Master)
@@ -500,6 +537,8 @@ function attachWebSocketHandlers() {
             if (data.type === 'assigned_slot') {
                 reconnectAttempts = 0;
                 currentSlot = data.slot;
+                if (data.session_name)
+                    updateSessionName(data.session_name);
                 slotIndicator.innerText = `SLOT #${String(currentSlot).padStart(2, '0')}`;
                 if (Array.isArray(data.ui_blueprint)) {
                     renderBlueprint(data.ui_blueprint);
@@ -522,6 +561,10 @@ function attachWebSocketHandlers() {
                 const reason = data.reason || 'REJECTED';
                 showError(`JOIN REJECTED: ${reason}`);
                 disconnectSession();
+                if (joinBtn) {
+                    joinBtn.disabled = false;
+                    joinBtn.style.opacity = '1';
+                }
                 return;
             }
             else if (data.type === 'error') {

@@ -36,17 +36,30 @@ async function run() {
 
     // Verify Lobby Elements
     const title = await page.textContent('#brand-title');
-    console.log(`[1] Brand title: ${title}`);
+    console.log(`[1] Dynamic Session Title: ${title}`);
 
-    const performerBtn = await page.locator('.role-select-btn[data-role="performer"]');
-    const spectatorBtn = await page.locator('.role-select-btn[data-role="audience"]');
-    const isPerformerVisible = await performerBtn.isVisible();
-    const isSpectatorVisible = await spectatorBtn.isVisible();
-    console.log(`[1] Binary Pathway Buttons Visible: Performer=${isPerformerVisible}, Spectator=${isSpectatorVisible}`);
+    // Verify Spectator is Completely Purged from User UI
+    const roleSelectorCount = await page.locator('.role-select-btn').count();
+    console.log(`[1] Spectator/Performer Pathway Toggle Count: ${roleSelectorCount} (Expected: 0)`);
+
+    // Verify Compact Swatch Pills
+    const swatchCount = await page.locator('.swatch-pill').count();
+    console.log(`[1] Compact Swatch Pills Count: ${swatchCount} (Expected: 8)`);
+
+    // Verify Randomize Button rolls handle & color
+    const initialName = await page.inputValue('#player-name');
+    await page.locator('#random-name-btn').click();
+    await page.waitForTimeout(100);
+    const randomizedName = await page.inputValue('#player-name');
+    console.log(`[1] Randomize Button: "${initialName}" -> "${randomizedName}"`);
+
+    // Verify Gate Status Pill is completely purged from attendee gate
+    const gatePillCount = await page.locator('#gate-status-pill').count();
+    console.log(`[1] Diagnostic Gate Status Pill Count: ${gatePillCount} (Expected: 0)`);
 
     const masterConsoleBtn = await page.locator('#open-master-modal-btn');
     const isMasterBtnVisible = await masterConsoleBtn.isVisible();
-    console.log(`[1] FOH Operator Button Visible: ${isMasterBtnVisible}`);
+    console.log(`[1] Covert FOH Operator Trigger Visible: ${isMasterBtnVisible}`);
 
     // Verify Master Modal
     console.log("[2] Opening FOH Master Login Modal...");
@@ -62,46 +75,22 @@ async function run() {
     const isModalClosed = !(await page.locator('#master-auth-modal').isVisible());
     console.log(`[2] Master Auth Modal Closed on Cancel: ${isModalClosed}`);
 
-    // Test Attendee Pathway: Spectator
-    console.log("[3] Testing Spectator Pathway...");
-    await spectatorBtn.click();
-    await page.waitForTimeout(200);
+    // Test Single Action Performer Join
+    console.log("[3] Testing Direct Performer Entry (ENTER STAGE)...");
+    const joinBtnText = await page.textContent('#join-btn');
+    console.log(`[3] Single Primary Button Text: "${joinBtnText.trim().replace(/\s+/g, ' ')}"`);
 
-    const isSwatchHidden = !(await page.locator('#swatch-section').isVisible());
-    console.log(`[3] Swatch section hidden for spectator: ${isSwatchHidden}`);
+    // Click a swatch pill
+    await page.locator('.swatch-pill[data-name="MAGENTA"]').click();
+    await page.waitForTimeout(100);
 
-    await page.locator('#join-btn').click();
-    await page.waitForTimeout(1000);
-
-    const isAudienceUiVisible = await page.locator('#view-audience').isVisible();
-    console.log(`[3] Spectator Audience Surface Visible: ${isAudienceUiVisible}`);
-
-    // Verify Swiss Brutalist Badges
-    const badge1 = await page.locator('.reaction-tile[data-reaction="ignite"] .reaction-badge').textContent();
-    const badge2 = await page.locator('.reaction-tile[data-reaction="strobe"] .reaction-badge').textContent();
-    const badge3 = await page.locator('.reaction-tile[data-reaction="flux"] .reaction-badge').textContent();
-    const badge4 = await page.locator('.reaction-tile[data-reaction="burst"] .reaction-badge').textContent();
-    console.log(`[3] Reaction Badges: ${badge1} | ${badge2} | ${badge3} | ${badge4}`);
-
-    // Tap BPM
-    await page.locator('#audience-bpm-tap').click();
-    await page.waitForTimeout(300);
-    await page.locator('#audience-bpm-tap').click();
-
-    // Disconnect Spectator
-    await page.locator('#exit-btn').click();
-    await page.waitForTimeout(500);
-
-    // Test Attendee Pathway: Performer
-    console.log("[4] Testing Performer Pathway...");
-    await performerBtn.click();
-    await page.waitForTimeout(200);
     await page.locator('#join-btn').click();
     await page.waitForTimeout(1000);
 
     const isPerformerUiVisible = await page.locator('#view-performer').isVisible();
+    const isAudienceUiHidden = !(await page.locator('#view-audience').isVisible());
     const slotText = await page.locator('#slot-indicator').textContent();
-    console.log(`[4] Performer Surface Visible: ${isPerformerUiVisible}, Indicator: ${slotText}`);
+    console.log(`[3] Performer Surface Visible: ${isPerformerUiVisible}, Spectator Hidden: ${isAudienceUiHidden}, Slot: ${slotText}`);
 
     // Trigger action buttons
     await page.locator('#btn-b1').dispatchEvent('pointerdown');
@@ -113,6 +102,9 @@ async function run() {
     await page.locator('#exit-btn').click();
     await page.waitForTimeout(500);
 
+    const isBackAtGate = await page.locator('#gate').isVisible();
+    console.log(`[4] Returned to Gate on Disconnect: ${isBackAtGate}`);
+
     // Check Console Errors
     console.log(`[5] Total Uncaught Console Errors: ${consoleErrors.length}`);
     if (consoleErrors.length > 0) {
@@ -121,7 +113,17 @@ async function run() {
 
     await browser.close();
 
-    if (consoleErrors.length === 0 && isPerformerVisible && isSpectatorVisible && isMasterBtnVisible && isAudienceUiVisible && isPerformerUiVisible) {
+    const isSuccess = (
+        consoleErrors.length === 0 &&
+        roleSelectorCount === 0 &&
+        swatchCount === 8 &&
+        isMasterBtnVisible &&
+        isPerformerUiVisible &&
+        isAudienceUiHidden &&
+        isBackAtGate
+    );
+
+    if (isSuccess) {
         console.log("\n[PASS] All Playwright browser UI tests passed with zero errors!");
         process.exit(0);
     } else {

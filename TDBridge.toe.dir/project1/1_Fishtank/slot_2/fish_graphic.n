@@ -1,0 +1,12 @@
+TOP:comp
+tile -122 275 130 90
+flags =  parlanguage 0
+inputs
+{
+0 	fish_pupil
+1 	fish_eye
+2 	fish_body
+3 	fish_tail
+}
+color 0.67 0.67 0.67 
+end

@@ -1,0 +1,5 @@
+DAT:table
+tile 1385 -600 130 90
+flags =  picked on parlanguage 0
+color 0.67 0.67 0.67 
+end

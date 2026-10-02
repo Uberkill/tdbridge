@@ -1,0 +1,5 @@
+DAT:parexec
+tile 475 -400 130 90
+flags =  picked on parlanguage 0
+color 0.67 0.67 0.67 
+end

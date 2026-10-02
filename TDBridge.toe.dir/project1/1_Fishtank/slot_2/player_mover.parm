@@ -1,0 +1,8 @@
+?
+tx 17 0 "float(op('select_user')[1, 'x'].val if (op('select_user').numRows > 1 and op('select_user')[1, 'x'].val != '') else 0)"
+ty 17 0 "float(op('select_user')[1, 'y'].val if (op('select_user').numRows > 1 and op('select_user')[1, 'y'].val != '') else 0)"
+sx 17 1 "max(0.2, min(2.5, float(op('select_user')[1, 'scale'].val if (op('select_user').numRows > 1 and op('select_user')[1, 'scale'].val not in ('', '0')) else 0.55) * float(parent(2).op('environment_controls').par.Botscalemult if (parent().digits != None and parent().digits <= 5) else parent(2).op('environment_controls').par.Playerscalemult)))"
+sy 17 1 "max(0.2, min(2.5, float(op('select_user')[1, 'scale'].val if (op('select_user').numRows > 1 and op('select_user')[1, 'scale'].val not in ('', '0')) else 0.55) * float(parent(2).op('environment_controls').par.Botscalemult if (parent().digits != None and parent().digits <= 5) else parent(2).op('environment_controls').par.Playerscalemult)))"
+resolutionw 0 1280
+resolutionh 0 720
+?

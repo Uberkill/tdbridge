@@ -1,0 +1,5 @@
+DAT:table
+tile 750 100 130 81
+flags =  parlanguage 0
+color 0.67 0.67 0.67 
+end

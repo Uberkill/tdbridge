@@ -1,0 +1,19 @@
+?
+pageindex 0 3
+enableexternaltox 0 off
+Profile 67108928 touchpad
+Roomcode 67109184 38PH
+Status 67109184 "[ONLINE // 60.0 FPS]"
+Maxplayers 67108928 100
+Portin 67108928 9000
+Portout 67108928 9001
+Lasterror 67108928 "Traceback (most recent call last):
+  File \"/project1/TDBridge/param_exec\", line 162, in onPulse
+  File \"/project1/TDBridge/create_scene_temp"
+Tunnelurl 67108928 https://pipe-goto-audio-munich.trycloudflare.com
+Mastercode 67108928 OP-337415
+Activescene 67108928 canvas
+Masterpin 67108928 1234
+Scenehealth 67108928 "[REPAIRED // 0 CHOPS, 0 TOPS, 4 WIRES]"
+Sessionname 67109184 "MAIN STAGE"
+?

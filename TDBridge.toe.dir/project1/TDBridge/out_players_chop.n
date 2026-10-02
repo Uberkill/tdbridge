@@ -1,0 +1,9 @@
+CHOP:out
+tile 1156 -521 130 90
+flags =  picked on parlanguage 0
+inputs
+{
+0 	merge_output
+}
+color 0.67 0.67 0.67 
+end

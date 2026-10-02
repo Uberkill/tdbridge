@@ -1,0 +1,13 @@
+?
+radiusx 17 0.042 parent().par.Tailsize
+radiusy 17 0.042 parent().par.Tailsize
+centerx 17 -0.078 -parent().par.Bodywidth
+centery 0 0
+centerunit 0 fractionaspect
+fillcolorr 17 1 "float(op('select_user')[1, 'r'].val if (op('select_user').numRows > 1 and op('select_user')[1, 'r'].val != '') else 1.0) * 0.75"
+fillcolorg 17 0.3 "float(op('select_user')[1, 'g'].val if (op('select_user').numRows > 1 and op('select_user')[1, 'g'].val != '') else 0.45) * 0.75"
+fillcolorb 17 0 "float(op('select_user')[1, 'b'].val if (op('select_user').numRows > 1 and op('select_user')[1, 'b'].val != '') else 0.0) * 0.75"
+ispolygon 0 on
+resolutionw 0 1280
+resolutionh 0 720
+?

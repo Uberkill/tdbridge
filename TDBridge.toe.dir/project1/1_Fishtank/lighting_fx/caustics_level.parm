@@ -1,0 +1,7 @@
+?
+gamma1 0 2.4
+highr 0 0.2
+highg 0 0.65
+highb 0 0.85
+opacity 17 1 float(parent(2).op('environment_controls').par.Causticintensity)
+?

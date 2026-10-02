@@ -1,0 +1,8 @@
+?
+period 0 3
+amp 0 0.5
+tx 17 0 "absTime.seconds * 0.2"
+ty 17 0 "parent().digits * 100 if parent().digits else 0"
+tz 0 0
+channelname 0 "chan1 chan2"
+?

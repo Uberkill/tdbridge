@@ -1,0 +1,8 @@
+?
+dat 0 players_data
+extractcols 0 bynames
+colnames 0 "active tx ty b1 b2 b3 b4 s1 s2 s3 s4 tap_rate rot"
+output 0 chanpercol
+firstrow 0 names
+firstcolumn 0 ignored
+?

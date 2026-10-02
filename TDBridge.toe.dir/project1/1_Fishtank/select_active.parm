@@ -1,0 +1,6 @@
+?
+dat 0 user_data
+extractrows 0 byexpr
+rowexpr 16 "me.inputTable[me.inputRow, 'name'] != '' or me.inputRow == 0" "re.match('.*',me.inputCell.val) != None"
+colexpr 0 ""
+?

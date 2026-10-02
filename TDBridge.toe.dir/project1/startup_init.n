@@ -1,0 +1,5 @@
+DAT:execute
+tile 65 -210 161 120
+flags =  parlanguage 0
+color 0.67 0.67 0.67 
+end

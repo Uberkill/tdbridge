@@ -1,0 +1,18 @@
+?
+radiusx 0 0.012
+radiusy 0 0.012
+centerx 17 0 "float(op('pellets_dat')[1, 'x'].val)"
+centery 17 0 "float(op('pellets_dat')[1, 'y'].val)"
+fillcolorr 0 1
+fillcolorg 0 0.78
+fillcolorb 0 0.2
+fillalpha 17 1 "1.0 if op('pellets_dat')[1, 'active'].val == '1' else 0.0"
+borderr 0 1
+borderg 0 0.95
+borderb 0 0.5
+borderalpha 17 1 "1.0 if op('pellets_dat')[1, 'active'].val == '1' else 0.0"
+borderwidth 0 0.003
+outputresolution 0 custom
+resolutionw 0 1280
+resolutionh 0 720
+?

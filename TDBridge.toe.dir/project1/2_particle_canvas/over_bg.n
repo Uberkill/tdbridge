@@ -1,0 +1,10 @@
+TOP:comp
+tile 2133 -879 130 90
+flags =  parlanguage 0
+inputs
+{
+0 	comp1
+1 	bg_color
+}
+color 0.67 0.67 0.67 
+end

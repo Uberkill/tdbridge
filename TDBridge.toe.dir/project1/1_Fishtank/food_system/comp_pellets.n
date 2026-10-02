@@ -1,0 +1,16 @@
+TOP:comp
+tile 827 401 130 90
+flags =  parlanguage 0
+inputs
+{
+0 	pellet_0
+1 	pellet_1
+2 	pellet_2
+3 	pellet_3
+4 	pellet_4
+5 	pellet_5
+6 	pellet_6
+7 	pellet_7
+}
+color 0.67 0.67 0.67 
+end

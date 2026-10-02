@@ -1,0 +1,10 @@
+CHOP:switch
+tile 150 -800 130 90
+flags =  parlanguage 0
+inputs
+{
+0 	joystick_input
+1 	bot_noise
+}
+color 0.67 0.67 0.67 
+end

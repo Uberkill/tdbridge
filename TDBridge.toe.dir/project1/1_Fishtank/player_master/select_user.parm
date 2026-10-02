@@ -1,0 +1,9 @@
+?
+dat 0 ../user_data
+firstrow 0 on
+extractrows 0 byindex
+rowindexstart 17 0 "parent().digits if parent().digits != None else 1"
+rowindexend 17 0 "parent().digits if parent().digits != None else 1"
+rowexpr 0 ""
+colexpr 0 ""
+?

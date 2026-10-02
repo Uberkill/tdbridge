@@ -1,0 +1,10 @@
+TOP:comp
+tile 100 -300 130 90
+flags =  parlanguage 0
+inputs
+{
+0 	food_system/out1
+1 	all_players
+}
+color 0.67 0.67 0.67 
+end

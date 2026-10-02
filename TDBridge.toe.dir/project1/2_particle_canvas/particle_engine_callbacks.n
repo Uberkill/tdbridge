@@ -1,0 +1,7 @@
+DAT:text
+tile 975 -800 130 90
+flags =  viewer 1 parlanguage 0
+color 0.67 0.67 0.67 
+dock particle_engine
+view -1 8 0 1 1 1 0 -13.4196 0 0 1 1 0
+end

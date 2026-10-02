@@ -1,0 +1,16 @@
+TOP:comp
+tile 227 811 130 90
+flags =  picked on current on parlanguage 0
+inputs
+{
+0 	bubble_0
+1 	bubble_1
+2 	bubble_2
+3 	bubble_3
+4 	bubble_4
+5 	bubble_5
+6 	bubble_6
+7 	bubble_7
+}
+color 0.67 0.67 0.67 
+end

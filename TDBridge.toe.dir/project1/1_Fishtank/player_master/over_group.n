@@ -1,0 +1,10 @@
+TOP:comp
+tile 331 353 130 90
+flags =  parlanguage 0
+inputs
+{
+0 	name_tx
+1 	fish_rot
+}
+color 0.67 0.67 0.67 
+end

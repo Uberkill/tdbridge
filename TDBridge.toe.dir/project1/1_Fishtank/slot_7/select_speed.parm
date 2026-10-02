@@ -1,0 +1,6 @@
+?
+chops 0 mover_null
+channames 0 "chan1 chan2"
+renamefrom 0 "chan1 chan2"
+renameto 0 "tx ty"
+?
