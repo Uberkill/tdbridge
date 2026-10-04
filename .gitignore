@@ -8,4 +8,6 @@ scratch_debug/
 Backup/
 graphify-out/.graphify_*.json
 graphify-out/cache/
+src/**/*.js
+src/**/*.js.map
 

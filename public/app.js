@@ -33,7 +33,9 @@ function sendClientTelemetryError(msg, line, col, stack) {
                 ua: navigator.userAgent
             }));
         }
-        catch (e) { }
+        catch (e) {
+            console.debug('[TELEMETRY] Failed to transmit client error:', e);
+        }
     }
 }
 window.onerror = (message, source, lineno, colno, error) => {
@@ -153,7 +155,9 @@ if (initialKey) {
         const cleanUrl = window.location.pathname + (initialRoom ? `?room=${initialRoom}` : '');
         window.history.replaceState({}, document.title, cleanUrl);
     }
-    catch (e) { }
+    catch (e) {
+        console.debug('[ROUTER] replaceState suppressed in sandbox:', e);
+    }
     // Auto-launch master console
     if (initialRoom.length === 4) {
         setTimeout(executeMasterAuth, 150);
@@ -379,9 +383,13 @@ joinBtn.addEventListener('click', () => {
     hideError();
     if ('wakeLock' in navigator) {
         try {
-            navigator.wakeLock.request('screen').catch(() => { });
+            navigator.wakeLock.request('screen').catch((err) => {
+                console.debug('[WAKELOCK] Screen wake lock promise rejected:', err);
+            });
         }
-        catch (e) { }
+        catch (e) {
+            console.debug('[WAKELOCK] Screen wake lock unavailable:', e);
+        }
     }
     gate.style.display = 'none';
     ui.style.display = 'flex';
@@ -401,7 +409,9 @@ function disconnectSession() {
     try {
         sessionStorage.removeItem('tdbridge_master_token');
     }
-    catch (e) { }
+    catch (e) {
+        console.debug('[STORAGE] sessionStorage clear failed:', e);
+    }
     flushInputs();
     if (ws)
         ws.close(1000, 'User disconnect');
@@ -463,7 +473,9 @@ function attachWebSocketHandlers() {
                 try {
                     sessionStorage.setItem('tdbridge_master_token', data.token);
                 }
-                catch (e) { }
+                catch (e) {
+                    console.debug('[STORAGE] sessionStorage persist failed:', e);
+                }
                 masterAuthModal.style.display = 'none';
                 gate.style.display = 'none';
                 ui.style.display = 'none';
@@ -572,7 +584,9 @@ function attachWebSocketHandlers() {
                 return;
             }
         }
-        catch (e) { }
+        catch (e) {
+            console.warn('[WS CLIENT ERROR] Message parse or handle failed:', e);
+        }
     };
     ws.onclose = (event) => {
         if (pingIntervalTimer) {
@@ -1109,7 +1123,9 @@ if (joystickBoundary) {
         try {
             joystickBoundary.setPointerCapture(e.pointerId);
         }
-        catch (err) { }
+        catch (err) {
+            console.debug('[JOYSTICK] Pointer capture unavailable:', err);
+        }
         updateJoyBounds();
         handleJoyMove(e);
         safeHaptic();
@@ -1128,7 +1144,9 @@ if (joystickBoundary) {
         try {
             joystickBoundary.releasePointerCapture(e.pointerId);
         }
-        catch (err) { }
+        catch (err) {
+            console.debug('[JOYSTICK] Pointer release ignored:', err);
+        }
         outX = 0;
         outY = 0;
         if (joystickPuck) {
@@ -1308,7 +1326,9 @@ function safeHaptic() {
         try {
             navigator.vibrate(12);
         }
-        catch (e) { }
+        catch (e) {
+            console.debug('[HAPTIC] Device vibration unavailable:', e);
+        }
     }
 }
 function sendControl(id, value) {

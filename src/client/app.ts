@@ -35,7 +35,9 @@ function sendClientTelemetryError(msg: string, line?: number, col?: number, stac
                 stack: stack ? stack.substring(0, 300) : null,
                 ua: navigator.userAgent
             }));
-        } catch (e) {}
+        } catch (e) {
+            console.debug('[TELEMETRY] Failed to transmit client error:', e);
+        }
     }
 }
 
@@ -166,7 +168,9 @@ if (initialKey) {
     try {
         const cleanUrl = window.location.pathname + (initialRoom ? `?room=${initialRoom}` : '');
         window.history.replaceState({}, document.title, cleanUrl);
-    } catch (e) {}
+    } catch (e) {
+        console.debug('[ROUTER] replaceState suppressed in sandbox:', e);
+    }
 
     // Auto-launch master console
     if (initialRoom.length === 4) {
@@ -406,8 +410,12 @@ joinBtn.addEventListener('click', () => {
 
     if ('wakeLock' in navigator) {
         try {
-            (navigator as any).wakeLock.request('screen').catch(() => {});
-        } catch (e) {}
+            (navigator as any).wakeLock.request('screen').catch((err: any) => {
+                console.debug('[WAKELOCK] Screen wake lock promise rejected:', err);
+            });
+        } catch (e) {
+            console.debug('[WAKELOCK] Screen wake lock unavailable:', e);
+        }
     }
 
     gate.style.display = 'none';
@@ -426,7 +434,11 @@ if (masterExitBtn) masterExitBtn.addEventListener('click', disconnectSession);
 function disconnectSession() {
     reconnectAttempts = 0;
     masterSessionToken = null;
-    try { sessionStorage.removeItem('tdbridge_master_token'); } catch (e) {}
+    try { 
+        sessionStorage.removeItem('tdbridge_master_token'); 
+    } catch (e) {
+        console.debug('[STORAGE] sessionStorage clear failed:', e);
+    }
     flushInputs();
     if (ws) ws.close(1000, 'User disconnect');
     if (reconnectTimer) {
@@ -489,7 +501,11 @@ function attachWebSocketHandlers() {
 
             if (data.type === 'master_login_success') {
                 masterSessionToken = data.token;
-                try { sessionStorage.setItem('tdbridge_master_token', data.token); } catch(e) {}
+                try { 
+                    sessionStorage.setItem('tdbridge_master_token', data.token); 
+                } catch(e) {
+                    console.debug('[STORAGE] sessionStorage persist failed:', e);
+                }
                 masterAuthModal.style.display = 'none';
                 gate.style.display = 'none';
                 ui.style.display = 'none';
@@ -588,7 +604,9 @@ function attachWebSocketHandlers() {
                 showError(data.message || 'CONNECTION ERROR');
                 return;
             }
-        } catch (e) {}
+        } catch (e) {
+            console.warn('[WS CLIENT ERROR] Message parse or handle failed:', e);
+        }
     };
 
     ws.onclose = (event: CloseEvent) => {
@@ -1150,7 +1168,11 @@ if (joystickBoundary) {
         e.preventDefault();
         isDraggingJoy = true;
         joyActivePointerId = e.pointerId;
-        try { joystickBoundary.setPointerCapture(e.pointerId); } catch (err) {}
+        try { 
+            joystickBoundary.setPointerCapture(e.pointerId); 
+        } catch (err) {
+            console.debug('[JOYSTICK] Pointer capture unavailable:', err);
+        }
         updateJoyBounds();
         handleJoyMove(e);
         safeHaptic();
@@ -1166,7 +1188,11 @@ if (joystickBoundary) {
         if (e.pointerId !== joyActivePointerId && joyActivePointerId !== null) return;
         isDraggingJoy = false;
         joyActivePointerId = null;
-        try { joystickBoundary.releasePointerCapture(e.pointerId); } catch (err) {}
+        try { 
+            joystickBoundary.releasePointerCapture(e.pointerId); 
+        } catch (err) {
+            console.debug('[JOYSTICK] Pointer release ignored:', err);
+        }
         outX = 0;
         outY = 0;
         if (joystickPuck) {
@@ -1376,7 +1402,9 @@ function safeHaptic() {
     if ('vibrate' in navigator) {
         try {
             navigator.vibrate(12);
-        } catch (e) {}
+        } catch (e) {
+            console.debug('[HAPTIC] Device vibration unavailable:', e);
+        }
     }
 }
 

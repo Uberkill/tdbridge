@@ -51,13 +51,15 @@ try {
             try {
                 process.kill(oldPid, 0); // test if process is alive
                 spawnSync('taskkill', ['/F', '/T', '/PID', String(oldPid)], { stdio: 'ignore' });
-            } catch (e) {
+            } catch (e: any) {
                 // Stale lockfile, process is dead
             }
         }
     }
     fs.writeFileSync(PID_FILE, String(process.pid));
-} catch (e) {}
+} catch (e: any) {
+    console.warn(`[STARTUP] Failed to write PID file ${PID_FILE}: ${e?.message || e}`);
+}
 
 // Dual-Code Generation
 const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRTUVWXY346789";
@@ -250,7 +252,9 @@ function recordEvent(level: 'INFO' | 'WARN' | 'ERROR' | 'DISCONNECT', message: s
 const LOG_FILE_PATH = path.join(__dirname, '../scratch_debug/error_log.txt');
 try {
     fs.mkdirSync(path.dirname(LOG_FILE_PATH), { recursive: true });
-} catch (e) {}
+} catch (e: any) {
+    console.warn(`[LOG INIT] Failed to create log directory: ${e?.message || e}`);
+}
 const MAX_LOGS = 10;
 const logs: string[] = [];
 
@@ -292,7 +296,9 @@ function printDashboard() {
         try {
             readline.cursorTo(process.stdout, 0, 0);
             readline.clearScreenDown(process.stdout);
-        } catch (e) {}
+        } catch (e: any) {
+            recordEvent('WARN', `ANSI cursor control suppressed: ${e?.message || e}`);
+        }
     }
     
     const isTdConnected = (Date.now() - tdLastSeen < 3500) && (tdLastSeen > 0);
@@ -358,6 +364,32 @@ udpPort.on("error", (err: Error) => {
     addLog(`[OSC ERROR] ${err.message}`);
 });
 
+let lastUdpErrorLog = 0;
+function safeUdpSend(msg: any, host: string = "127.0.0.1", port: number = OSC_PORT): boolean {
+    try {
+        udpPort.send(msg, host, port);
+        return true;
+    } catch (err: any) {
+        const now = Date.now();
+        if (now - lastUdpErrorLog > 5000) {
+            lastUdpErrorLog = now;
+            addLog(`[UDP ERROR] Failed to send OSC to ${host}:${port}: ${err?.message || err}`);
+        }
+        return false;
+    }
+}
+
+function safeWsSend(ws: WebSocket | null | undefined, payload: string): boolean {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    try {
+        ws.send(payload);
+        return true;
+    } catch (err: any) {
+        recordEvent('WARN', `WebSocket send failed: ${err?.message || err}`);
+        return false;
+    }
+}
+
 udpPort.on("message", (oscMsg: any) => {
     try {
         tdLastSeen = Date.now();
@@ -419,7 +451,9 @@ udpPort.on("message", (oscMsg: any) => {
                         broadcastRoster();
                     }
                 }
-            } catch (e) {}
+            } catch (e: any) {
+                addLog(`[TD ERROR] Malformed scene list payload: ${e?.message || e}`);
+            }
         } else if (oscMsg.address === "/td/scene_health") {
             const newHealth = String(val ?? '');
             if (newHealth !== tdSceneHealth) {
@@ -449,18 +483,18 @@ udpPort.on("message", (oscMsg: any) => {
                 addLog(`[PROFILE ERROR] Failed to parse custom blueprint: ${e.message}`);
             }
         }
-    } catch (e) {}
+    } catch (e: any) {
+        addLog(`[OSC ERROR] Error handling UDP message on ${oscMsg?.address}: ${e?.message || e}`);
+    }
 });
 
 udpPort.open();
 udpPort.on("ready", () => {
     sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
-    try {
-        udpPort.send({ address: '/bridge/master_code', args: [{ type: 's', value: ACTIVE_MASTER_KEY }] }, "127.0.0.1", OSC_PORT);
-        udpPort.send({ address: '/bridge/scene', args: [{ type: 's', value: activeScene }] }, "127.0.0.1", OSC_PORT);
-        const initialTunnelUrl = cloudflareUrl || `http://${LOCAL_LAN_IP}:${WS_PORT}`;
-        udpPort.send({ address: '/bridge/tunnel', args: [{ type: 's', value: initialTunnelUrl }] }, "127.0.0.1", OSC_PORT);
-    } catch (e) {}
+    safeUdpSend({ address: '/bridge/master_code', args: [{ type: 's', value: ACTIVE_MASTER_KEY }] });
+    safeUdpSend({ address: '/bridge/scene', args: [{ type: 's', value: activeScene }] });
+    const initialTunnelUrl = cloudflareUrl || `http://${LOCAL_LAN_IP}:${WS_PORT}`;
+    safeUdpSend({ address: '/bridge/tunnel', args: [{ type: 's', value: initialTunnelUrl }] });
 });
 
 function setScene(sceneName: string, explicitProfile?: string, sendToTD = true) {
@@ -493,9 +527,7 @@ function setScene(sceneName: string, explicitProfile?: string, sendToTD = true) 
     addLog(`[SCENE] Switched active scene to: ${activeScene.toUpperCase()}`);
 
     if (sendToTD) {
-        try {
-            udpPort.send({ address: '/bridge/scene', args: [{ type: 's', value: canonical }] }, '127.0.0.1', OSC_PORT);
-        } catch (e) {}
+        safeUdpSend({ address: '/bridge/scene', args: [{ type: 's', value: canonical }] });
     }
 
     broadcastSceneChange();
@@ -512,11 +544,7 @@ function broadcastSceneChange() {
     });
 
     for (const client of wss.clients) {
-        if (client.readyState === WebSocket.OPEN) {
-            try {
-                client.send(payload);
-            } catch (e) {}
-        }
+        safeWsSend(client, payload);
     }
     requestRedraw();
 }
@@ -539,11 +567,7 @@ function broadcastProfileChange() {
     });
     
     for (const slot of slots) {
-        if (slot.ws && slot.ws.readyState === WebSocket.OPEN) {
-            try {
-                slot.ws.send(payload);
-            } catch (e) {}
-        }
+        safeWsSend(slot.ws, payload);
     }
     requestRedraw();
 }
@@ -565,9 +589,7 @@ if (skipTunnel) {
             if (match) {
                 cloudflareUrl = "https://" + match[1];
                 addLog(`[NETWORK] Tunnel established at ${cloudflareUrl}`);
-                try {
-                    udpPort.send({ address: '/bridge/tunnel', args: [{ type: 's', value: cloudflareUrl }] }, "127.0.0.1", OSC_PORT);
-                } catch (e) {}
+                safeUdpSend({ address: '/bridge/tunnel', args: [{ type: 's', value: cloudflareUrl }] });
                 requestRedraw();
             }
         });
@@ -691,14 +713,10 @@ function freeSlot(index: number) {
 }
 
 function sendOSC_Float(slotNumber: number, channel: string, value: number) { 
-    try { 
-        udpPort.send({ address: `/slot_${slotNumber}_${channel}`, args: [{ type: "f", value: value }] }, "127.0.0.1", OSC_PORT); 
-    } catch (e) { }
+    safeUdpSend({ address: `/slot_${slotNumber}_${channel}`, args: [{ type: "f", value: value }] }); 
 }
 function sendOSC_String(slotNumber: number, channel: string, value: string) { 
-    try { 
-        udpPort.send({ address: `/slot_${slotNumber}_${channel}`, args: [{ type: "s", value: value }] }, "127.0.0.1", OSC_PORT); 
-    } catch (e) { }
+    safeUdpSend({ address: `/slot_${slotNumber}_${channel}`, args: [{ type: "s", value: value }] }); 
 }
 
 function getRosterPayload() {
@@ -734,9 +752,7 @@ function broadcastRoster() {
     if (masterSockets.size === 0) return;
     const payload = JSON.stringify(getRosterPayload());
     for (const [mWs] of masterSockets.entries()) {
-        if (mWs.readyState === WebSocket.OPEN) {
-            try { mWs.send(payload); } catch (e) {}
-        }
+        safeWsSend(mWs, payload);
     }
 }
 
@@ -746,24 +762,16 @@ function broadcastSessionUpdate() {
         session_name: activeSessionName
     });
     for (const slot of slots) {
-        if (slot.ws && slot.ws.readyState === WebSocket.OPEN) {
-            try { slot.ws.send(payload); } catch (e) {}
-        }
+        safeWsSend(slot.ws, payload);
     }
     for (const ws of audienceSockets) {
-        if (ws.readyState === WebSocket.OPEN) {
-            try { ws.send(payload); } catch (e) {}
-        }
+        safeWsSend(ws, payload);
     }
     for (const ws of masterSockets.keys()) {
-        if (ws.readyState === WebSocket.OPEN) {
-            try { ws.send(payload); } catch (e) {}
-        }
+        safeWsSend(ws, payload);
     }
     for (const ws of unauthenticatedSockets) {
-        if (ws.readyState === WebSocket.OPEN) {
-            try { ws.send(payload); } catch (e) {}
-        }
+        safeWsSend(ws, payload);
     }
     broadcastRoster();
 }
@@ -894,15 +902,17 @@ wss.on('connection', (ws: WebSocket, req) => {
                     const cleanScene = String(data.scene || '').replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 32);
                     setScene(cleanScene, undefined, true);
                 } else if (data.action === 'system_reset') {
-                    udpPort.send({ address: '/bridge/reset', args: [{ type: 'i', value: 1 }] }, '127.0.0.1', OSC_PORT);
+                    safeUdpSend({ address: '/bridge/reset', args: [{ type: 'i', value: 1 }] });
                     addLog(`[MASTER] Triggered global system reset.`);
                 } else if (data.action === 'slot_purge') {
                     for (let i = 5; i < MAX_USERS; i++) {
                         if (slots[i] && slots[i].ws) {
+                            safeWsSend(slots[i].ws, JSON.stringify({ type: 'kicked', reason: 'Session reset by operator' }));
                             try { 
-                                slots[i].ws?.send(JSON.stringify({ type: 'kicked', reason: 'Session reset by operator' }));
                                 slots[i].ws?.close(4003, 'Purged by operator'); 
-                            } catch (e) {}
+                            } catch (e: any) {
+                                recordEvent('WARN', `Failed to close purged socket: ${e?.message || e}`);
+                            }
                             freeSlot(i);
                         }
                     }
@@ -914,10 +924,12 @@ wss.on('connection', (ws: WebSocket, req) => {
                     if (targetIdx >= 5 && targetIdx < MAX_USERS && slots[targetIdx].ws) {
                         const targetWs = slots[targetIdx].ws;
                         const kickedName = slots[targetIdx].name;
+                        safeWsSend(targetWs, JSON.stringify({ type: 'kicked', reason: 'Disconnected by FOH Operator' }));
                         try { 
-                            targetWs?.send(JSON.stringify({ type: 'kicked', reason: 'Disconnected by FOH Operator' }));
                             targetWs?.close(4003, 'Kicked by operator'); 
-                        } catch (e) {}
+                        } catch (e: any) {
+                            recordEvent('WARN', `Failed to close kicked socket: ${e?.message || e}`);
+                        }
                         freeSlot(targetIdx);
                         addLog(`[MASTER] Kicked Slot ${targetSlot} (${kickedName})`);
                         broadcastRoster();
@@ -1106,10 +1118,8 @@ wss.on('connection', (ws: WebSocket, req) => {
 
                 const rate = typeof data.rate === 'number' ? Math.max(0, Math.min(300, data.rate)) : 0;
                 if (audienceSockets.has(ws)) {
-                    try {
-                        udpPort.send({ address: '/bridge/hype', args: [{ type: "f", value: 1.0 }] }, "127.0.0.1", OSC_PORT);
-                        udpPort.send({ address: '/audience/tap', args: [{ type: "f", value: rate }] }, "127.0.0.1", OSC_PORT);
-                    } catch(e) {}
+                    safeUdpSend({ address: '/bridge/hype', args: [{ type: "f", value: 1.0 }] });
+                    safeUdpSend({ address: '/audience/tap', args: [{ type: "f", value: rate }] });
                 } else if (slotIndex !== -1 && slots[slotIndex]?.ws === ws) {
                     const playerNum = slotIndex + 1;
                     sendOSC_Float(playerNum, "tap_rate", rate);
@@ -1141,7 +1151,9 @@ wss.on('connection', (ws: WebSocket, req) => {
                 sendOSC_Float(playerNum, "action3", 0);
                 return;
             }
-        } catch (e) {}
+        } catch (e: any) {
+            addLog(`[WS ERROR] Error processing client message: ${e?.message || e}`);
+        }
     });
 
     ws.on('close', () => { 
@@ -1188,8 +1200,12 @@ setInterval(() => {
                 } else {
                     ws.terminate();
                 }
-            } catch (e) {
-                try { ws.terminate(); } catch (_) {}
+            } catch (e: any) {
+                try { 
+                    ws.terminate(); 
+                } catch (err: any) {
+                    recordEvent('WARN', `Failed to terminate unauthenticated socket: ${err?.message || err}`);
+                }
             }
             addLog(`[TIMEOUT] Reaped idle unauthenticated socket after 15s.`);
         }
@@ -1210,7 +1226,11 @@ setInterval(() => {
         if (slot.ws !== null && slot.isJoined) {
             if (now - slot.lastSeen > 8000) {
                 addLog(`[TIMEOUT] Slot ${i + 1} (${slot.name}) inactive >8s. Reaping slot.`);
-                try { slot.ws?.terminate(); } catch(e) {}
+                try { 
+                    slot.ws?.terminate(); 
+                } catch(e: any) {
+                    recordEvent('WARN', `Failed to terminate inactive slot ${i + 1}: ${e?.message || e}`);
+                }
                 freeSlot(i);
             }
         }
@@ -1220,14 +1240,10 @@ setInterval(() => {
 // Deterministic 1000ms Heartbeat to TouchDesigner & Roster Stream
 setInterval(() => {
     sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
-    try {
-        udpPort.send({ address: '/bridge/master_code', args: [{ type: 's', value: ACTIVE_MASTER_KEY }] }, "127.0.0.1", OSC_PORT);
-    } catch (e) {}
+    safeUdpSend({ address: '/bridge/master_code', args: [{ type: 's', value: ACTIVE_MASTER_KEY }] });
 
     if (cloudflareUrl) {
-        try {
-            udpPort.send({ address: '/bridge/tunnel', args: [{ type: 's', value: cloudflareUrl }] }, "127.0.0.1", OSC_PORT);
-        } catch (e) {}
+        safeUdpSend({ address: '/bridge/tunnel', args: [{ type: 's', value: cloudflareUrl }] });
     }
 
     // Broadcast live telemetry & roster to open Master Consoles
@@ -1238,12 +1254,10 @@ setInterval(() => {
 
 // Loopback ping to TouchDesigner (measures IPC / UDP latency)
 setInterval(() => {
-    try {
-        udpPort.send({
-            address: "/bridge/ping",
-            args: [{ type: "f", value: Date.now() }]
-        }, "127.0.0.1", OSC_PORT);
-    } catch (e) {}
+    safeUdpSend({
+        address: "/bridge/ping",
+        args: [{ type: "f", value: Date.now() }]
+    });
 }, 2000);
 
 // Resilient Graceful Shutdown & Child Process Tree Purge
@@ -1260,7 +1274,9 @@ function gracefulShutdown(signal: string) {
                 const currentPid = fs.readFileSync(PID_FILE, 'utf8').trim();
                 if (currentPid === String(process.pid)) fs.unlinkSync(PID_FILE);
             }
-        } catch (e) {}
+        } catch (e: any) {
+            recordEvent('WARN', `Failed to unlink PID file on forced exit: ${e?.message || e}`);
+        }
         process.exit(1);
     }, 2000);
     forceExitTimer.unref();
@@ -1269,30 +1285,56 @@ function gracefulShutdown(signal: string) {
     if (cf && cf.pid) {
         try {
             spawnSync('taskkill', ['/F', '/T', '/PID', String(cf.pid)], { stdio: 'ignore' });
-        } catch (e) {}
+        } catch (e: any) {
+            recordEvent('WARN', `Failed to kill cloudflared process: ${e?.message || e}`);
+        }
     }
 
     // 2. Terminate all client websockets cleanly
     for (const slot of slots) {
         if (slot.ws) {
-            try { slot.ws.terminate(); } catch (e) {}
+            try { 
+                slot.ws.terminate(); 
+            } catch (e: any) {
+                recordEvent('WARN', `Failed to terminate performer socket: ${e?.message || e}`);
+            }
             slot.ws = null;
         }
     }
     for (const ws of audienceSockets) {
-        try { ws.terminate(); } catch (e) {}
+        try { 
+            ws.terminate(); 
+        } catch (e: any) {
+            recordEvent('WARN', `Failed to terminate audience socket: ${e?.message || e}`);
+        }
     }
     for (const [ws] of masterSockets.entries()) {
-        try { ws.terminate(); } catch (e) {}
+        try { 
+            ws.terminate(); 
+        } catch (e: any) {
+            recordEvent('WARN', `Failed to terminate master socket: ${e?.message || e}`);
+        }
     }
     audienceSockets.clear();
     masterSockets.clear();
     socketToSlot.clear();
 
     // 3. Close network servers and sockets
-    try { wss.close(); } catch (e) {}
-    try { server.close(); } catch (e) {}
-    try { udpPort.close(); } catch (e) {}
+    try { 
+        wss.close(); 
+    } catch (e: any) {
+        recordEvent('WARN', `Failed to close WebSocket server: ${e?.message || e}`);
+    }
+    try { 
+        server.close(); 
+    } catch (e: any) {
+        recordEvent('WARN', `Failed to close HTTP server: ${e?.message || e}`);
+    }
+    try { 
+        udpPort.close(); 
+    } catch (e: any) {
+        recordEvent('WARN', `Failed to close UDP port: ${e?.message || e}`);
+    }
 
     // 4. Remove PID file
     try {
@@ -1302,7 +1344,9 @@ function gracefulShutdown(signal: string) {
                 fs.unlinkSync(PID_FILE);
             }
         }
-    } catch (e) {}
+    } catch (e: any) {
+        recordEvent('WARN', `Failed to remove PID file on shutdown: ${e?.message || e}`);
+    }
 
     process.exit(0);
 }
