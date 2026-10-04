@@ -1,0 +1,22 @@
+{
+  "project": "TDBridge",
+  "last_updated": "2026-10-04T17:14:34+0800",
+  "tasks": [
+    {
+      "task_id": "TASK-001",
+      "component": "core",
+      "description": "Initial baseline project health check & test verification",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "attempt_count": 0
+    },
+    {
+      "task_id": "TASK-002",
+      "component": "client",
+      "description": "Audit and harden 50 empty catch blocks in src/client/app.ts with debug telemetry",
+      "status": "TODO",
+      "priority": "MEDIUM",
+      "attempt_count": 0
+    }
+  ]
+}

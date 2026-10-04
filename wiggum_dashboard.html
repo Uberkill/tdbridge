@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TDBridge &bull; Wiggum Mission Control Dashboard</title>
+    <style>
+        :root {
+            --void-bg: #090a0d;
+            --surface-glass: rgba(18, 20, 28, 0.75);
+            --surface-elevated: rgba(28, 30, 42, 0.65);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-subtle: rgba(255, 255, 255, 0.04);
+            --text-primary: #f4f4f6;
+            --text-secondary: #9ba0b2;
+            --text-muted: #616578;
+            --accent-blue: #3b82f6;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-ruby: #f43f5e;
+            --accent-purple: #8b5cf6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--void-bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.10) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 28px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* Header Bar */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            background: var(--surface-glass);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-badge {
+            background: linear-gradient(135deg, #2563eb, #8b5cf6);
+            color: white;
+            font-weight: 800;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            letter-spacing: 0.05em;
+        }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+        }
+
+        .meta-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        /* Tabs Nav */
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border-glass);
+            padding-bottom: 12px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid transparent;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: var(--surface-elevated);
+        }
+
+        .tab-btn.active {
+            color: #ffffff;
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        /* Metrics Row */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 220px repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .glass-panel {
+            background: var(--surface-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-card {
+            background: var(--surface-elevated);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 16px;
+        }
+
+        /* Radial Health Gauge */
+        .health-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .radial-box {
+            position: relative;
+            width: 110px;
+            height: 110px;
+            margin-bottom: 10px;
+        }
+
+        .radial-gauge {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .gauge-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.05);
+            stroke-width: 8;
+        }
+
+        .gauge-fill {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 301.59;
+            stroke-dashoffset: 114.60419999999999;
+            stroke: #f59e0b;
+            filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.4));
+            transition: stroke-dashoffset 0.8s ease;
+        }
+
+        .gauge-score {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .metric-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.1;
+        }
+
+        .metric-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Tables & Content */
+        .content-card {
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+        }
+
+        .search-input {
+            background: rgba(10, 11, 14, 0.6);
+            border: 1px solid var(--border-glass);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            width: 220px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-glass);
+            padding: 10px 12px;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 12px;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #cbd5e1;
+        }
+
+        /* Badges */
+        .badge-status {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 4px;
+            letter-spacing: 0.05em;
+        }
+
+        .status-completed { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .status-progress { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .status-blocked { background: rgba(244, 63, 94, 0.15); color: #f87171; border: 1px solid rgba(244, 63, 94, 0.3); }
+
+        .badge-attempt {
+            font-size: 10px;
+            color: var(--accent-amber);
+            font-family: monospace;
+            margin-left: 4px;
+        }
+
+        .badge-prio {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .prio-critical { background: rgba(244, 63, 94, 0.2); color: #fca5a5; }
+        .prio-high { background: rgba(245, 158, 11, 0.2); color: #fde68a; }
+        .prio-medium { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+        .prio-low { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; }
+
+        /* Progress bars */
+        .progress-wrap {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        /* Buttons & Interactions */
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            display: inline-block;
+            transition: background 0.15s ease;
+        }
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-copy {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-glass);
+            color: var(--text-secondary);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .btn-copy:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        /* Failure Cards */
+        .failure-card {
+            margin-bottom: 12px;
+        }
+        .failure-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--accent-ruby);
+        }
+        .failure-trace {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 11px;
+            color: #fca5a5;
+        }
+
+        /* Graphify Hub */
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .god-nodes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .god-nodes-list { list-style: none; margin-top: 6px; }
+        .god-nodes-list li { margin-bottom: 4px; }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .text-accent { color: var(--accent-blue); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-muted { color: var(--text-muted); }
+        .text-xs { font-size: 11px; }
+        .mt-1 { margin-top: 4px; }
+        .mt-4 { margin-top: 16px; }
+        .py-2 { padding-top: 8px; padding-bottom: 8px; }
+        .py-4 { padding-top: 16px; padding-bottom: 16px; }
+        .py-6 { padding-top: 24px; padding-bottom: 24px; }
+        .text-center { text-align: center; }
+    </style>
+</head>
+<body>
+
+    <!-- Header Bar -->
+    <header class="header">
+        <div class="header-title">
+            <div class="logo-badge">WIGGUM</div>
+            <div>
+                <h1>TDBridge <span class="text-secondary">&bull; Mission Control</span></h1>
+                <p class="meta-text">C:\Users\oob\.gemini\antigravity\scratch\TDBridge</p>
+            </div>
+        </div>
+        <div class="text-right">
+            <div class="meta-text">TELEMETRY SYNCED: 2026-10-04 17:15:24 Malay Peninsula Standard Time</div>
+            <div class="meta-text mt-1">GIT TREE: <strong style="color: #f43f5e">DIRTY (UNCOMMITTED)</strong></div>
+        </div>
+    </header>
+
+    <!-- Top Navigation Tabs -->
+    <nav class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab(0)">[1] Overview & Telemetry</button>
+        <button class="tab-btn" onclick="switchTab(1)">[2] Test Referee (10/10)</button>
+        <button class="tab-btn" onclick="switchTab(2)">[3] Coverage Matrix (N/A%)</button>
+        <button class="tab-btn" onclick="switchTab(3)">[4] Autonomous Task Ledger (2)</button>
+        <button class="tab-btn" onclick="switchTab(4)">[5] Codebase Audit (50)</button>
+        <button class="tab-btn" onclick="switchTab(5)">[6] Graphify Architecture</button>
+    </nav>
+
+    <!-- Top Key Performance Indicators Row -->
+    <section class="metrics-grid">
+        <!-- Health Score Radial Meter -->
+        <div class="glass-panel health-card">
+            <div class="radial-box">
+                <svg class="radial-gauge" viewBox="0 0 120 120">
+                    <circle class="gauge-bg" cx="60" cy="60" r="48" />
+                    <circle class="gauge-fill" cx="60" cy="60" r="48" />
+                </svg>
+                <div class="gauge-score">62</div>
+            </div>
+            <div class="metric-label" style="color: #f59e0b;">NEEDS ATTENTION</div>
+            <div class="text-xs text-secondary">HEALTH SCORE</div>
+        </div>
+
+        <!-- Tests Passing KPI -->
+        <div class="metric-card glass-panel">
+            <div class="metric-label">TEST REFEREE</div>
+            <div class="metric-value" style="color: #10b981;">
+                10 / 10
+            </div>
+            <div class="metric-sub">2.29s duration &bull; exit code 0</div>
+        </div>
+
+        <!-- Coverage KPI -->
+        
+        <div class="metric-card glass-card">
+            <div class="metric-label">STATEMENT COVERAGE</div>
+            <div class="metric-value text-secondary">N/A</div>
+            <div class="metric-sub">Run <code>pytest --cov</code> to compute</div>
+        </div>
+        
+
+        <!-- Autonomous Tasks KPI -->
+        <div class="metric-card glass-panel">
+            <div class="metric-label">AUTONOMOUS TASKS</div>
+            <div class="metric-value">1 / 2</div>
+            <div class="metric-sub">0 blocked &bull; 0 active</div>
+        </div>
+
+        <!-- AST Codebase Audit KPI -->
+        <div class="metric-card glass-panel">
+            <div class="metric-label">CODEBASE FINDINGS</div>
+            <div class="metric-value" style="color: #f59e0b;">
+                50
+            </div>
+            <div class="metric-sub">0 bare excepts &bull; clean reliability</div>
+        </div>
+    </section>
+
+    <!-- TAB 1: OVERVIEW -->
+    <div class="tab-panel active" id="tab-0">
+        <!-- Graphify Hub Embed Card -->
+        
+        <div class="graphify-hub glass-card">
+            <div class="flex-between">
+                <div>
+                    <h3 class="card-title">Graphify Knowledge Graph Detected</h3>
+                    <p class="text-secondary text-sm">Extracted 680 nodes, 0 relationships across 84 communities.</p>
+                </div>
+                <span class="text-muted">Graph visualization built</span>
+            </div>
+            <div class="god-nodes-grid mt-4">
+                <div>
+                    <strong class="text-xs text-secondary">CENTRAL GOD NODES</strong>
+                    <ul class="god-nodes-list mt-1"></ul>
+                </div>
+                <div>
+                    <strong class="text-xs text-secondary">ARCHITECTURAL REPORT SUMMARY</strong>
+                    <p class="text-xs text-secondary mt-1"># Graph Report - C:\Users\oob\.gemini\antigravity\scratch\TDBridge  (2026-10-02)
+
+## Corpus Check
+- 125 files · ~267,371 words
+- Verdict: corpus is large enough that graph structure adds value.
+
+## Summary
+- 680 nodes · 783 edges · 84 communities (66 shown, 18 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 13 edges (avg confidence: 0.5)
+- Token cost: 0 input · 0 output
+
+## Community Hubs (Navigation)
+- Client U...</p>
+                </div>
+            </div>
+        </div>
+        
+
+        <!-- Recent Failures or All Clear -->
+        <div class="glass-panel content-card mt-4">
+            <div class="card-header">
+                <h2 class="card-title">Test Referee Telemetry & Diagnostics</h2>
+                <span class="badge-status status-completed">
+                    ALL TESTS PASSING
+                </span>
+            </div>
+            <div class='text-muted py-2'>All tests passing cleanly. Zero failure traces.</div>
+        </div>
+    </div>
+
+    <!-- TAB 2: TEST REFEREE -->
+    <div class="tab-panel" id="tab-1">
+        <div class="glass-panel content-card">
+            <div class="card-header">
+                <h2 class="card-title">Executed Test Suites & Backpressure Results</h2>
+                <div class="meta-text">10 Tests Executed in 2.29s</div>
+            </div>
+            <div class='text-muted py-2'>All tests passing cleanly. Zero failure traces.</div>
+        </div>
+    </div>
+
+    <!-- TAB 3: COVERAGE MATRIX -->
+    <div class="tab-panel" id="tab-2">
+        <div class="glass-panel content-card">
+            <div class="card-header">
+                <h2 class="card-title">Statement & Branch Coverage by Source File</h2>
+                <input type="text" class="search-input" placeholder="Filter source file..." oninput="filterTable(this, 'cov-table')">
+            </div>
+            <table id="cov-table">
+                <thead>
+                    <tr>
+                        <th>SOURCE FILE</th>
+                        <th style="width: 240px;">COVERAGE BAR</th>
+                        <th>COVERAGE %</th>
+                        <th>STATEMENTS</th>
+                        <th>MISSING LINES</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+        <tr><td colspan='5' class='text-muted text-center py-4'>
+            Coverage instrumentation not yet computed.<br>
+            <span class="text-xs text-secondary">Run <code>pytest --cov</code> or trigger Wiggum Test Synthesizer to export coverage.json.</span>
+        </td></tr>
+        
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 4: TASK LEDGER -->
+    <div class="tab-panel" id="tab-3">
+        <div class="glass-panel content-card">
+            <div class="card-header">
+                <h2 class="card-title">Autonomous Task State Machine (TASK_LEDGER.md)</h2>
+                <input type="text" class="search-input" placeholder="Search tasks..." oninput="filterTable(this, 'task-table')">
+            </div>
+            <table id="task-table">
+                <thead>
+                    <tr>
+                        <th>TASK ID</th>
+                        <th>COMPONENT</th>
+                        <th>DESCRIPTION</th>
+                        <th>STATUS</th>
+                        <th>PRIORITY</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+        <tr class="task-row" data-status="completed">
+            <td><strong class="text-accent">TASK-001</strong></td>
+            <td><code>core</code></td>
+            <td>Initial baseline project health check &amp; test verification</td>
+            <td><span class="badge-status status-completed">COMPLETED</span> </td>
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+        </tr>
+        
+        <tr class="task-row" data-status="todo">
+            <td><strong class="text-accent">TASK-002</strong></td>
+            <td><code>client</code></td>
+            <td>Audit and harden 50 empty catch blocks in src/client/app.ts with debug telemetry</td>
+            <td><span class="badge-status status-progress">TODO</span> </td>
+            <td><span class="badge-prio prio-medium">MEDIUM</span></td>
+        </tr>
+        
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 5: AUDIT FINDINGS -->
+    <div class="tab-panel" id="tab-4">
+        <div class="glass-panel content-card">
+            <div class="card-header">
+                <h2 class="card-title">AST Pattern & Reliability Audit Findings</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>SEVERITY</th>
+                        <th>LOCATION</th>
+                        <th>RULE</th>
+                        <th>DESCRIPTION</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/client/app.js:252</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/client/app.ts:38</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/client/app.ts:169</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/client/app.ts:410</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/client/app.ts:429</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/client/app.ts:492</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/client/app.ts:591</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/client/app.ts:1153</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/client/app.ts:1169</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/client/app.ts:1379</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.js:142</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.js:194</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.js:200</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.js:279</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.js:292</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:60</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:253</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:295</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:422</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:452</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:463</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:498</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:518</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:545</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:570</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:696</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:701</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:738</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:750</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:755</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:760</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:765</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:905</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:920</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1112</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1144</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1192</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1213</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1225</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1230</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1246</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1263</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1272</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1278</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1283</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1286</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1293</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1294</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1295</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+        <tr class="audit-row">
+            <td><span class="badge-prio prio-high">HIGH</span></td>
+            <td><code>src/server/relay.ts:1305</code></td>
+            <td><strong>swallowed-exception</strong></td>
+            <td>Empty catch block silently swallowing error. Handle or log the error.</td>
+        </tr>
+        
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 6: GRAPHIFY ARCHITECTURE -->
+    <div class="tab-panel" id="tab-5">
+        <div class="glass-panel content-card">
+            
+        <div class="graphify-hub glass-card">
+            <div class="flex-between">
+                <div>
+                    <h3 class="card-title">Graphify Knowledge Graph Detected</h3>
+                    <p class="text-secondary text-sm">Extracted 680 nodes, 0 relationships across 84 communities.</p>
+                </div>
+                <span class="text-muted">Graph visualization built</span>
+            </div>
+            <div class="god-nodes-grid mt-4">
+                <div>
+                    <strong class="text-xs text-secondary">CENTRAL GOD NODES</strong>
+                    <ul class="god-nodes-list mt-1"></ul>
+                </div>
+                <div>
+                    <strong class="text-xs text-secondary">ARCHITECTURAL REPORT SUMMARY</strong>
+                    <p class="text-xs text-secondary mt-1"># Graph Report - C:\Users\oob\.gemini\antigravity\scratch\TDBridge  (2026-10-02)
+
+## Corpus Check
+- 125 files · ~267,371 words
+- Verdict: corpus is large enough that graph structure adds value.
+
+## Summary
+- 680 nodes · 783 edges · 84 communities (66 shown, 18 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 13 edges (avg confidence: 0.5)
+- Token cost: 0 input · 0 output
+
+## Community Hubs (Navigation)
+- Client U...</p>
+                </div>
+            </div>
+        </div>
+        
+        </div>
+    </div>
+
+    <script>
+        function switchTab(index) {
+            const btns = document.querySelectorAll('.tab-btn');
+            const panels = document.querySelectorAll('.tab-panel');
+            btns.forEach((b, i) => b.classList.toggle('active', i === index));
+            panels.forEach((p, i) => p.classList.toggle('active', i === index));
+        }
+
+        function filterTable(input, tableId) {
+            const filter = input.value.toLowerCase();
+            const rows = document.querySelectorAll('#' + tableId + ' tbody tr');
+            rows.forEach(r => {
+                r.style.display = r.innerText.toLowerCase().includes(filter) ? '' : 'none';
+            });
+        }
+
+        function copyTrace(btn, text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = btn.innerText;
+                btn.innerText = 'Copied!';
+                setTimeout(() => { btn.innerText = orig; }, 1800);
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            const key = parseInt(e.key);
+            if (key >= 1 && key <= 6) {
+                switchTab(key - 1);
+            }
+        });
+    </script>
+</body>
+</html>
