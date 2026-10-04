@@ -79,14 +79,23 @@ export function sanitizeBlueprint(items: any[]): ControlItem[] {
     if (!Array.isArray(items)) return [];
     const valid: ControlItem[] = [];
     const allowedTypes = new Set(['button', 'slider', 'dpad', 'toggle', 'reaction']);
+    const seenIds = new Set<string>();
 
     for (const item of items) {
         if (!item || typeof item !== 'object') continue;
         const type = String(item.type || '').toLowerCase();
         if (!allowedTypes.has(type)) continue;
 
-        const id = String(item.id || '').replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 16);
+        let id = String(item.id || '').replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 16);
         if (!id) continue;
+
+        // Auto-deduplicate IDs to prevent channel collision in TouchDesigner
+        if (seenIds.has(id)) {
+            let counter = 2;
+            while (seenIds.has(`${id}_${counter}`)) counter++;
+            id = `${id}_${counter}`.substring(0, 16);
+        }
+        seenIds.add(id);
 
         const label = String(item.label || id).replace(/[<>]/g, '').substring(0, 24);
         const color = typeof item.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(item.color) ? item.color : '#4285f4';
@@ -102,10 +111,17 @@ export function sanitizeBlueprint(items: any[]): ControlItem[] {
         if (item.badge) sanitized.badge = String(item.badge).substring(0, 16);
 
         if (type === 'slider') {
-            sanitized.min = typeof item.min === 'number' ? item.min : 0;
-            sanitized.max = typeof item.max === 'number' ? item.max : 1;
-            sanitized.step = typeof item.step === 'number' ? item.step : 0.01;
-            const defVal = typeof item.default_val === 'number' ? item.default_val : 0.5;
+            let min = typeof item.min === 'number' && !isNaN(item.min) ? item.min : 0;
+            let max = typeof item.max === 'number' && !isNaN(item.max) ? item.max : 1;
+            if (min > max) {
+                const tmp = min;
+                min = max;
+                max = tmp;
+            }
+            sanitized.min = min;
+            sanitized.max = max;
+            sanitized.step = typeof item.step === 'number' && item.step > 0 ? item.step : 0.01;
+            const defVal = typeof item.default_val === 'number' && !isNaN(item.default_val) ? item.default_val : 0.5;
             sanitized.default_val = Math.max(sanitized.min, Math.min(sanitized.max, defVal));
         }
 

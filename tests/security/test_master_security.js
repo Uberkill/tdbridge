@@ -197,6 +197,12 @@ async function runMasterSecurityTests() {
             await sleep(100);
         }
 
+        // Step 8: Test Idle Reaper, Map TTL & Lobby Telemetry
+        const { spawnSync } = require('child_process');
+        const path = require('path');
+        const ttlRes = spawnSync('node', [path.resolve(__dirname, 'test_idle_reaper_and_ttl.js')], { stdio: 'inherit' });
+        assert(ttlRes.status === 0, "Idle socket reaper, Map TTL pruning, and lobby telemetry tests pass");
+
         console.log(`\nResults: ${passed} passed, ${failed} failed.`);
         if (failed === 0) {
             console.log("\n[SUCCESS] All security and master architecture tests passed cleanly!");

@@ -57,22 +57,44 @@ for /f "tokens=4" %%a in ('netstat -aon ^| findstr ":9001 "') do (
 taskkill /F /IM cloudflared.exe >nul 2>&1
 echo [OK] Network ports ready.
 
+set REBUILD_REQUESTED=0
+for %%x in (%*) do (
+    if /i "%%x"=="--rebuild" set REBUILD_REQUESTED=1
+    if /i "%%x"=="-r" set REBUILD_REQUESTED=1
+)
+
 :: --- Step 4: Build Client & Server Bundles ---
-echo [BUILD] Verifying and building application bundles...
+echo [BUILD] Verifying application bundles...
 if not exist "public\app.js" (
     echo   - Building client app.js...
     call npx tsc src\client\app.ts --outDir public --target es2020 --lib dom,es2020 --esModuleInterop --skipLibCheck 2>nul
 )
-echo   - Building relay server dist\relay.js...
-call npx tsc src\server\relay.ts --outDir dist --target es2020 --module commonjs --esModuleInterop --skipLibCheck 2>nul
-if not exist "dist\relay.js" (
-    color 0c
-    echo [ERROR] TypeScript compilation failed!
-    echo         Check src\server\relay.ts for syntax errors.
-    pause
-    exit /b 1
+
+set NEED_SERVER_BUILD=0
+if not exist "dist\relay.js" set NEED_SERVER_BUILD=1
+if "!REBUILD_REQUESTED!"=="1" set NEED_SERVER_BUILD=1
+
+if "!NEED_SERVER_BUILD!"=="0" (
+    node -e "const fs = require('fs'); const d = fs.statSync('dist/relay.js').mtimeMs; const r = fs.statSync('src/server/relay.ts').mtimeMs; const p = fs.existsSync('src/server/profiles.ts') ? fs.statSync('src/server/profiles.ts').mtimeMs : 0; process.exit(r > d || p > d ? 1 : 0);" >nul 2>&1
+    if !errorlevel! neq 0 (
+        set NEED_SERVER_BUILD=1
+    )
 )
-echo [OK] Build verification complete.
+
+if "!NEED_SERVER_BUILD!"=="1" (
+    echo   - Building relay server dist\relay.js...
+    call npx tsc src\server\relay.ts --outDir dist --target es2020 --module commonjs --esModuleInterop --skipLibCheck 2>nul
+    if not exist "dist\relay.js" (
+        color 0c
+        echo [ERROR] TypeScript compilation failed!
+        echo         Check src\server\relay.ts for syntax errors.
+        pause
+        exit /b 1
+    )
+    echo [OK] Build complete.
+) else (
+    echo [OK] Application bundles up to date ^(cached^).
+)
 
 :: --- Step 5: TouchDesigner Engine Health Check ---
 tasklist /FI "IMAGENAME eq TouchDesigner.exe" 2>NUL | find /I /N "TouchDesigner.exe">NUL
@@ -103,7 +125,7 @@ echo   TouchDesigner active project: TDBridge.toe
 echo =========================================================
 echo.
 
-node dist\relay.js
+node dist\relay.js %*
 set RELAY_EXIT_CODE=%errorlevel%
 
 :: --- Step 7: Post-Exit Diagnostics ---

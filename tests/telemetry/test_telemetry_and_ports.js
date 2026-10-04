@@ -57,9 +57,9 @@ async function runTests() {
 
         // Ports domain
         assert(t.ports, "Missing ports domain");
-        assert.strictEqual(t.ports.http_ws_port, 8080);
-        assert.strictEqual(t.ports.osc_remote_port, 9000);
-        assert.strictEqual(t.ports.osc_local_port, 9001);
+        assert.strictEqual(t.ports.http_ws_port, parseInt(process.env.WS_PORT || '8080', 10));
+        assert.strictEqual(t.ports.osc_remote_port, parseInt(process.env.OSC_PORT || '9000', 10));
+        assert.strictEqual(t.ports.osc_local_port, parseInt(process.env.OSC_LOCAL_PORT || '9001', 10));
         assert.strictEqual(t.ports.is_listening, true);
 
         // TouchDesigner domain
@@ -75,7 +75,9 @@ async function runTests() {
         // Network domain
         assert(t.network, "Missing network domain");
         assert(typeof t.network.public_url === 'string');
+        assert(typeof t.network.local_url === 'string');
         assert(typeof t.network.total_connected_sockets === 'number');
+        assert(typeof t.network.lobby_gate_sockets === 'number');
         assert(typeof t.network.average_client_rtt_ms === 'number');
 
         // Recent events ring buffer

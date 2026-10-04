@@ -3,8 +3,9 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import crypto from 'crypto';
-import { spawn, spawnSync } from 'child_process';
+import { spawn, spawnSync, ChildProcess } from 'child_process';
 import * as readline from 'readline';
 // @ts-ignore
 import osc from 'osc';
@@ -12,9 +13,33 @@ import osc from 'osc';
 import qrcode from 'qrcode-terminal';
 import { BUILTIN_PROFILES, sanitizeBlueprint, ControlItem } from './profiles';
 
-const WS_PORT = 8080;
-const OSC_PORT = 9000;
+const WS_PORT = parseInt(process.env.WS_PORT || '8080', 10);
+const OSC_PORT = parseInt(process.env.OSC_PORT || '9000', 10);
+const OSC_LOCAL_PORT = parseInt(process.env.OSC_LOCAL_PORT || '9001', 10);
 const MAX_USERS = 100;
+
+// Resolve physical local LAN IP (prioritizing 192.168.x / 10.x / 172.16-31.x and skipping virtual adapters)
+function getLocalIpAddress(): string {
+    const interfaces = os.networkInterfaces();
+    const candidates: string[] = [];
+    const virtualRegex = /(vEthernet|WSL|VirtualBox|VMware|Hyper-V|Loopback|docker|vethernet|tailscale|tap|tun)/i;
+
+    for (const [name, netInterface] of Object.entries(interfaces)) {
+        if (!netInterface || virtualRegex.test(name)) continue;
+        for (const net of netInterface) {
+            if (net.family === 'IPv4' && !net.internal) {
+                if (net.address.startsWith('192.168.') || net.address.startsWith('10.') || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(net.address)) {
+                    return net.address;
+                }
+                candidates.push(net.address);
+            }
+        }
+    }
+    return candidates[0] || '127.0.0.1';
+}
+
+const LOCAL_LAN_IP = getLocalIpAddress();
+const skipTunnel = process.env.NO_TUNNEL === '1' || process.argv.includes('--no-tunnel');
 
 // Mutex Lockfile & Stale PID Recovery
 const PID_FILE = path.join(__dirname, '../.relay.pid');
@@ -45,7 +70,7 @@ function generateRoomCode(): string {
 }
 const ACTIVE_ROOM_CODE = generateRoomCode();
 const ACTIVE_MASTER_KEY = `OP-${crypto.randomInt(100000, 999999)}`;
-let ACTIVE_MASTER_PIN = '1234';
+let ACTIVE_MASTER_PIN = (process.env.MASTER_PIN || '1234').trim();
 let tdAvailableScenes: Array<{ id: string, label: string, index: number }> = [
     { id: 'aquarium', label: '[01] Interactive Aquarium', index: 0 },
     { id: 'canvas', label: '[02] Generative Particle Canvas', index: 1 },
@@ -118,7 +143,7 @@ app.get('/telemetry', (req, res) => {
         ports: {
             http_ws_port: WS_PORT,
             osc_remote_port: OSC_PORT,
-            osc_local_port: 9001,
+            osc_local_port: OSC_LOCAL_PORT,
             is_listening: server.listening
         },
         touchdesigner: {
@@ -131,12 +156,14 @@ app.get('/telemetry', (req, res) => {
             loopback_latency_ms: tdLoopbackLatency
         },
         network: {
-            tunnel_status: cloudflareUrl ? 'live' : 'local_only',
-            public_url: cloudflareUrl || `http://127.0.0.1:${WS_PORT}`,
-            total_connected_sockets: slots.filter(s => s.ws !== null).length + audienceSockets.size + masterSockets.size,
+            tunnel_status: cloudflareUrl ? 'live' : (skipTunnel ? 'local_only' : 'establishing'),
+            public_url: cloudflareUrl || `http://${LOCAL_LAN_IP}:${WS_PORT}`,
+            local_url: `http://${LOCAL_LAN_IP}:${WS_PORT}`,
+            total_connected_sockets: slots.filter(s => s.ws !== null).length + audienceSockets.size + masterSockets.size + unauthenticatedSockets.size,
             performers_active: activePerformers,
             audience_spectators: audienceSockets.size,
             foh_masters_active: masterSockets.size,
+            lobby_gate_sockets: unauthenticatedSockets.size,
             average_client_rtt_ms: computeAverageRtt()
         },
         recent_events: eventLogRingBuffer.slice(-50)
@@ -153,16 +180,6 @@ app.get('/profile', (req, res) => {
     });
 });
 
-app.post('/profile/:name', (req, res) => {
-    const target = req.params.name.toLowerCase();
-    if (BUILTIN_PROFILES[target]) {
-        setProfile(target);
-        res.json({ success: true, profile: currentProfile });
-    } else {
-        res.status(404).json({ error: `Unknown profile: ${target}` });
-    }
-});
-
 app.post('/profile/custom', (req, res) => {
     const sanitized = sanitizeBlueprint(req.body?.blueprint);
     if (sanitized.length > 0) {
@@ -173,6 +190,16 @@ app.post('/profile/custom', (req, res) => {
         res.json({ success: true, count: sanitized.length });
     } else {
         res.status(400).json({ error: 'Invalid blueprint payload' });
+    }
+});
+
+app.post('/profile/:name', (req, res) => {
+    const target = req.params.name.toLowerCase();
+    if (BUILTIN_PROFILES[target]) {
+        setProfile(target);
+        res.json({ success: true, profile: currentProfile });
+    } else {
+        res.status(404).json({ error: `Unknown profile: ${target}` });
     }
 });
 
@@ -270,14 +297,20 @@ function printDashboard() {
     
     const isTdConnected = (Date.now() - tdLastSeen < 3500) && (tdLastSeen > 0);
     const tdStatusStr = isTdConnected ? `\x1b[32m[ONLINE - ${tdFPS} FPS]\x1b[0m` : `\x1b[33m[CONNECTING / WAITING...]\x1b[0m`;
-    const netStatusStr = cloudflareUrl ? `\x1b[32m[LIVE - CLOUDFLARE]\x1b[0m` : `\x1b[33m[ESTABLISHING TUNNEL...]\x1b[0m`;
+    const netStatusStr = cloudflareUrl 
+        ? `\x1b[32m[LIVE - CLOUDFLARE]\x1b[0m` 
+        : (skipTunnel ? `\x1b[36m[LIVE - LOCAL LAN ONLY]\x1b[0m` : `\x1b[33m[ESTABLISHING WAN TUNNEL...]\x1b[0m`);
+
+    const publicAddrStr = cloudflareUrl 
+        ? `\x1b[36m${cloudflareUrl}\x1b[0m` 
+        : (skipTunnel ? `\x1b[33mhttp://${LOCAL_LAN_IP}:${WS_PORT}\x1b[0m (Local Only)` : `\x1b[33m[Pending WAN allocation...]\x1b[0m`);
 
     console.log("=========================================================");
     console.log("             TOUCHDESIGNER BRIDGE TERMINAL               ");
     console.log("=========================================================");
     console.log(`[NETWORK]    Status:          ${netStatusStr}`);
-    console.log(`[URL]        Public Address:  \x1b[36m${cloudflareUrl || 'http://127.0.0.1:' + WS_PORT}\x1b[0m`);
-    console.log(`[LOCAL]      Local LAN:       http://127.0.0.1:${WS_PORT}`);
+    console.log(`[URL]        Public Address:  ${publicAddrStr}`);
+    console.log(`[LOCAL]      Local LAN:       \x1b[32mhttp://${LOCAL_LAN_IP}:${WS_PORT}\x1b[0m`);
     console.log(`---------------------------------------------------------`);
     console.log(`[ROOM CODE]  \x1b[1m\x1b[33m>>>  [ ${ACTIVE_ROOM_CODE.split('').join(' ')} ]  <<<\x1b[0m   (Audience Entry)`);
     console.log(`[MASTER KEY] \x1b[1m\x1b[31m>>>  [ ${ACTIVE_MASTER_KEY} ]  <<<\x1b[0m   (FOH Operator Only)`);
@@ -295,12 +328,14 @@ function printDashboard() {
     }
     console.log("=========================================================");
     
-    if (cloudflareUrl) {
-        console.log("\nScan to join:");
-        const fullUrl = `${cloudflareUrl}/?room=${ACTIVE_ROOM_CODE}`;
-        qrcode.generate(fullUrl, { small: true });
-        console.log("=========================================================\n");
-    }
+    const qrUrl = cloudflareUrl || `http://${LOCAL_LAN_IP}:${WS_PORT}`;
+    const qrLabel = cloudflareUrl 
+        ? "Scan to join (Public WAN):" 
+        : (skipTunnel ? "Scan to join (Local LAN):" : "Scan to join (Local LAN - WAN tunnel allocating...):");
+    console.log(`\n${qrLabel}`);
+    const fullUrl = `${qrUrl}/?room=${ACTIVE_ROOM_CODE}`;
+    qrcode.generate(fullUrl, { small: true });
+    console.log("=========================================================\n");
     console.log("Live Telemetry & Diagnostics:");
     if (logs.length === 0) {
         console.log("  (System standing by. Waiting for player joins...)");
@@ -314,7 +349,7 @@ process.stdout.on('resize', requestRedraw);
 // Set up OSC (Two-Way Telemetry & Profile Sync)
 const udpPort = new osc.UDPPort({
     localAddress: "127.0.0.1",
-    localPort: 9001, 
+    localPort: OSC_LOCAL_PORT, 
     remoteAddress: "127.0.0.1",
     remotePort: OSC_PORT
 });
@@ -423,6 +458,8 @@ udpPort.on("ready", () => {
     try {
         udpPort.send({ address: '/bridge/master_code', args: [{ type: 's', value: ACTIVE_MASTER_KEY }] }, "127.0.0.1", OSC_PORT);
         udpPort.send({ address: '/bridge/scene', args: [{ type: 's', value: activeScene }] }, "127.0.0.1", OSC_PORT);
+        const initialTunnelUrl = cloudflareUrl || `http://${LOCAL_LAN_IP}:${WS_PORT}`;
+        udpPort.send({ address: '/bridge/tunnel', args: [{ type: 's', value: initialTunnelUrl }] }, "127.0.0.1", OSC_PORT);
     } catch (e) {}
 });
 
@@ -511,26 +548,35 @@ function broadcastProfileChange() {
     requestRedraw();
 }
 
-// Run Cloudflare
-const binPath = path.join(__dirname, '../bin/cloudflared.exe');
-const rootPath = path.join(__dirname, '../cloudflared.exe');
-const cfExecutable = fs.existsSync(binPath) ? binPath : rootPath;
-const cf = spawn(cfExecutable, ['tunnel', '--url', `http://127.0.0.1:${WS_PORT}`]);
-cf.stdout.on('data', () => {});
-cf.stderr.on('data', (data) => {
-    const output = data.toString();
-    const match = output.match(/https:\/\/(.*\.trycloudflare\.com)/);
-    if (match) {
-        cloudflareUrl = "https://" + match[1];
-        addLog(`[NETWORK] Tunnel established at ${cloudflareUrl}`);
-        try {
-            udpPort.send({ address: '/bridge/tunnel', args: [{ type: 's', value: cloudflareUrl }] }, "127.0.0.1", OSC_PORT);
-        } catch (e) {}
-        requestRedraw();
+// Run Cloudflare Tunnel (or Local Rehearsal Bypass)
+let cf: ChildProcess | null = null;
+if (skipTunnel) {
+    addLog('[NETWORK] Local rehearsal mode active (Cloudflare tunnel skipped)');
+} else {
+    const binPath = path.join(__dirname, '../bin/cloudflared.exe');
+    const rootPath = path.join(__dirname, '../cloudflared.exe');
+    const cfExecutable = fs.existsSync(binPath) ? binPath : rootPath;
+    try {
+        cf = spawn(cfExecutable, ['tunnel', '--edge-ip-version', '4', '--url', `http://127.0.0.1:${WS_PORT}`]);
+        cf.stdout?.on('data', () => {});
+        cf.stderr?.on('data', (data) => {
+            const output = data.toString();
+            const match = output.match(/https:\/\/(.*\.trycloudflare\.com)/);
+            if (match) {
+                cloudflareUrl = "https://" + match[1];
+                addLog(`[NETWORK] Tunnel established at ${cloudflareUrl}`);
+                try {
+                    udpPort.send({ address: '/bridge/tunnel', args: [{ type: 's', value: cloudflareUrl }] }, "127.0.0.1", OSC_PORT);
+                } catch (e) {}
+                requestRedraw();
+            }
+        });
+        cf.on('error', (err) => { addLog(`[FATAL] Failed to start cloudflared.exe: ${err.message}`); });
+        cf.on('close', (code) => { addLog(`[NETWORK] Tunnel exited (Code ${code})`); });
+    } catch (e: any) {
+        addLog(`[FATAL] Failed to spawn cloudflared: ${e?.message || e}`);
     }
-});
-cf.on('error', (err) => { addLog(`[FATAL] Failed to start cloudflared.exe: ${err.message}`); });
-cf.on('close', (code) => { addLog(`[NETWORK] Tunnel exited (Code ${code})`); });
+}
 
 // Setup WebSockets & Security State
 interface SlotData { 
@@ -556,9 +602,10 @@ const slots: SlotData[] = Array.from({ length: MAX_USERS }, () => ({
 
 // Set of unauthenticated sockets (awaiting join or master login)
 const unauthenticatedSockets = new Set<WebSocket>();
+const socketConnectedAt = new Map<WebSocket, number>();
 const audienceSockets = new Set<WebSocket>();
 const masterSockets = new Map<WebSocket, string>(); // ws -> sessionToken
-const masterAuthFailures = new Map<string, { count: number; lockedUntil: number }>();
+const masterAuthFailures = new Map<string, { count: number; lockedUntil: number; lastAttempt: number }>();
 const socketToSlot = new Map<WebSocket, number>();
 const audienceTapCounters = new Map<WebSocket, { count: number; windowStart: number }>();
 
@@ -581,7 +628,8 @@ function isIpRateLimited(ip: string): boolean {
 function recordAuthFailure(ip: string) {
     if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost') return;
     const now = Date.now();
-    const entry = masterAuthFailures.get(ip) || { count: 0, lockedUntil: 0 };
+    const entry = masterAuthFailures.get(ip) || { count: 0, lockedUntil: 0, lastAttempt: now };
+    entry.lastAttempt = now;
     if (now > entry.lockedUntil && entry.lockedUntil > 0) {
         entry.count = 1;
         entry.lockedUntil = 0;
@@ -727,6 +775,7 @@ const ENV_PARAM_REGEX = /^[a-zA-Z0-9_]{1,24}$/;
 wss.on('connection', (ws: WebSocket, req) => {
     const clientIp = req.socket.remoteAddress || '127.0.0.1';
     unauthenticatedSockets.add(ws);
+    socketConnectedAt.set(ws, Date.now());
 
     ws.on('error', (err) => { 
         addLog(`[WS ERROR] Socket: ${err.message}`); 
@@ -809,6 +858,7 @@ wss.on('connection', (ws: WebSocket, req) => {
 
                 // Authentication Successful
                 unauthenticatedSockets.delete(ws);
+                socketConnectedAt.delete(ws);
                 (ws as any)._masterAttempts = 0;
                 const sessionToken = crypto.randomBytes(16).toString('hex');
                 masterSockets.set(ws, sessionToken);
@@ -924,6 +974,7 @@ wss.on('connection', (ws: WebSocket, req) => {
                 }
 
                 unauthenticatedSockets.delete(ws);
+                socketConnectedAt.delete(ws);
 
                 // Pathway 1: Audience Spectator (0 performer slots consumed)
                 if (data.role === 'audience' || data.role === 'spectator') {
@@ -1097,6 +1148,7 @@ wss.on('connection', (ws: WebSocket, req) => {
         clientRtts.delete(ws);
         audienceTapCounters.delete(ws);
         unauthenticatedSockets.delete(ws);
+        socketConnectedAt.delete(ws);
 
         if (masterSockets.has(ws)) {
             masterSockets.delete(ws);
@@ -1123,11 +1175,32 @@ wss.on('connection', (ws: WebSocket, req) => {
 setInterval(() => {
     const now = Date.now();
 
-    // 1. Unauthenticated sockets timeout (10s deadline to join or auth)
+    // 1. Unauthenticated sockets timeout (15s deadline to join or auth)
     for (const ws of unauthenticatedSockets) {
-        // ws without slot or role
-        if (ws.readyState === WebSocket.OPEN) {
-            // Check socket age if tracked or terminate if stale
+        const connectedTime = socketConnectedAt.get(ws) || 0;
+        if (connectedTime > 0 && now - connectedTime > 15000) {
+            unauthenticatedSockets.delete(ws);
+            socketConnectedAt.delete(ws);
+            try {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'rejected', reason: 'Handshake timeout (15s)' }));
+                    ws.close(4008, 'Handshake Timeout');
+                } else {
+                    ws.terminate();
+                }
+            } catch (e) {
+                try { ws.terminate(); } catch (_) {}
+            }
+            addLog(`[TIMEOUT] Reaped idle unauthenticated socket after 15s.`);
+        }
+    }
+
+    // 2. Auth failure IP table TTL pruning
+    for (const [ip, entry] of masterAuthFailures.entries()) {
+        if (entry.lockedUntil > 0 && now >= entry.lockedUntil) {
+            masterAuthFailures.delete(ip);
+        } else if (entry.lockedUntil === 0 && now - entry.lastAttempt > 180000) {
+            masterAuthFailures.delete(ip);
         }
     }
 

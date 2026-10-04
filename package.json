@@ -8,7 +8,9 @@
         "build:server": "tsc src/server/relay.ts --outDir dist --target es2020 --module commonjs --esModuleInterop --skipLibCheck",
         "build": "npm run build:client && npm run build:server",
         "start": "node dist/relay.js",
+        "start:local": "node dist/relay.js --no-tunnel",
         "test": "node tests/master_test_runner.js",
+        "test:chaos": "node tests/e2e/test_adversarial_chaos_battery.js",
         "test:unit": "jest tests/unit/client.test.ts",
         "test:e2e": "node tests/run_all_tests.js",
         "latency": "node tools/measure_latency.js"

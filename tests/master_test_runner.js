@@ -42,7 +42,12 @@ async function main() {
     if (!relayCheck.ok || !relayCheck.data?.room) {
         console.log("\x1b[33mOFFLINE (Auto-starting relay)...\x1b[0m");
         const { spawn } = require('child_process');
-        spawnedRelay = spawn('node', ['dist/relay.js'], { cwd: CWD, stdio: 'ignore', detached: true });
+        spawnedRelay = spawn('node', ['dist/relay.js'], { 
+            cwd: CWD, 
+            stdio: 'ignore', 
+            detached: true,
+            env: { ...process.env, NO_TUNNEL: '1' }
+        });
         spawnedRelay.unref();
         for (let attempt = 0; attempt < 25; attempt++) {
             await new Promise(r => setTimeout(r, 200));
@@ -111,6 +116,11 @@ async function main() {
             domain: "DOMAIN 9: SELF-HEALING ARCHITECTURE & MASTER PIN",
             cmd: "node",
             args: ["tests/e2e/test_self_heal_and_master_pin.js"]
+        },
+        {
+            domain: "DOMAIN 10: ADVERSARIAL CHAOS & MULTI-PROJECT GENERALIZATION",
+            cmd: "node",
+            args: ["tests/e2e/test_adversarial_chaos_battery.js"]
         }
     ];
 
@@ -165,6 +175,12 @@ async function main() {
         console.log("\x1b[31m[STATUS: VERIFICATION FAILED // ATTENTION REQUIRED]\x1b[0m");
     }
     console.log(hr() + "\n");
+
+    if (spawnedRelay && spawnedRelay.pid) {
+        try {
+            process.kill(spawnedRelay.pid);
+        } catch (e) {}
+    }
 
     process.exit(allPassed ? 0 : 1);
 }
