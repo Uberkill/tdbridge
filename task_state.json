@@ -1,11 +1,11 @@
 {
   "project": "TDBridge",
-  "last_updated": "2026-10-04T17:31:07+0800",
+  "last_updated": "2026-10-08T01:35:00+0800",
   "tasks": [
     {
       "task_id": "TASK-001",
       "component": "core",
-      "description": "Initial baseline project health check & test verification",
+      "description": "Baseline system health check & test harness verification",
       "status": "COMPLETED",
       "priority": "HIGH",
       "attempt_count": 0
@@ -13,9 +13,41 @@
     {
       "task_id": "TASK-002",
       "component": "client",
-      "description": "Audit and harden 50 empty catch blocks in src/client/app.ts with debug telemetry",
+      "description": "Client error boundary & exception telemetry hardening",
       "status": "COMPLETED",
       "priority": "MEDIUM",
+      "attempt_count": 0
+    },
+    {
+      "task_id": "TASK-003",
+      "component": "server",
+      "description": "FOH master console security, role segregation & remote kick",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "attempt_count": 0
+    },
+    {
+      "task_id": "TASK-004",
+      "component": "client",
+      "description": "Responsive Swiss design system & dynamic session branding",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "attempt_count": 0
+    },
+    {
+      "task_id": "TASK-005",
+      "component": "bridge",
+      "description": "Self-healing TouchDesigner scene routing & channel invariant contracts",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "attempt_count": 0
+    },
+    {
+      "task_id": "TASK-006",
+      "component": "engine",
+      "description": "TouchDesigner .toc packaging fix & multi-scene profile alignment",
+      "status": "COMPLETED",
+      "priority": "HIGH",
       "attempt_count": 0
     }
   ]

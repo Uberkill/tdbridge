@@ -12,7 +12,8 @@ async function fetchTelemetry() {
     });
 }
 
-const ARTIFACT_DIR = 'C:/Users/oob/.gemini/antigravity/brain/a85c95c0-9135-4e67-b9cf-c00832188970';
+const ARTIFACT_DIR = process.env.ARTIFACT_DIR || path.resolve(__dirname, '../../artifacts');
+if (!require('fs').existsSync(ARTIFACT_DIR)) require('fs').mkdirSync(ARTIFACT_DIR, { recursive: true });
 
 const VIEWPORTS = [
     {

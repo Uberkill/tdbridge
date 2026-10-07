@@ -26,7 +26,10 @@ async function capture() {
     await mobilePage.goto(`http://127.0.0.1:8080?room=${roomCode}`);
     await mobilePage.waitForTimeout(800);
 
-    const mobileArtifact = path.resolve('C:/Users/oob/.gemini/antigravity/brain/a85c95c0-9135-4e67-b9cf-c00832188970/onboarding_gate_mobile_hierarchy.png');
+    const artifactDir = process.env.ARTIFACT_DIR || path.resolve(__dirname, '../../artifacts');
+    if (!require('fs').existsSync(artifactDir)) require('fs').mkdirSync(artifactDir, { recursive: true });
+
+    const mobileArtifact = path.resolve(artifactDir, 'onboarding_gate_mobile_hierarchy.png');
     await mobilePage.screenshot({ path: mobileArtifact, fullPage: true });
     console.log(`Mobile Gate Screenshot saved to: ${mobileArtifact}`);
 
@@ -36,7 +39,7 @@ async function capture() {
     await desktopPage.goto(`http://127.0.0.1:8080?room=${roomCode}`);
     await desktopPage.waitForTimeout(800);
 
-    const desktopArtifact = path.resolve('C:/Users/oob/.gemini/antigravity/brain/a85c95c0-9135-4e67-b9cf-c00832188970/onboarding_gate_desktop_hierarchy.png');
+    const desktopArtifact = path.resolve(artifactDir, 'onboarding_gate_desktop_hierarchy.png');
     await desktopPage.screenshot({ path: desktopArtifact, fullPage: true });
     console.log(`Desktop Gate Screenshot saved to: ${desktopArtifact}`);
 

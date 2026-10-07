@@ -1,13 +1,28 @@
+# Dependencies
 node_modules/
-*.jpg
+
+# Runtime process locks and logs
+.relay.pid
+scratch_debug/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# TouchDesigner auto-save backups
+Backup/
 *.*.toe
 *.backup
-__pycache__/
-scratch_debug/
-.relay.pid
-Backup/
-graphify-out/.graphify_*.json
-graphify-out/cache/
+
+# Compiled JS in src/ (source is src/**/*.ts; build outputs go to dist/ and public/app.js)
 src/**/*.js
 src/**/*.js.map
 
+# Graphify cache
+graphify-out/.graphify_*.json
+graphify-out/cache/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini

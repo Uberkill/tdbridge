@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TDBridge // Swiss Graphic Monolith</title>
-    <!-- Google Fonts: Space Grotesk (Display) & JetBrains Mono (Telemetry) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -12,12 +11,8 @@
 </head>
 <body class="touch-none">
 
-    <!-- ============================================================== -->
-    <!-- ONBOARDING LOBBY (#gate)                                       -->
-    <!-- ============================================================== -->
     <div id="gate">
         <div class="mono-card">
-            <!-- Header Block (BIG & SMALL) -->
             <div class="mono-header">
                 <h1 id="brand-title">MAIN STAGE</h1>
                 <p id="brand-subtitle" class="subtitle">LIVE PERFORMANCE GATE</p>
@@ -25,7 +20,6 @@
 
             <div id="error-msg" class="error-banner" style="display: none;"></div>
 
-            <!-- Room Code Segmented Entry (BIG HIERARCHY) -->
             <div class="field-group">
                 <div class="section-label">ROOM CODE</div>
                 <div class="room-code-wrapper" id="room-code-group">
@@ -37,7 +31,6 @@
                 </div>
             </div>
 
-            <!-- Performer Callsign & Stage Color (MEDIUM HIERARCHY) -->
             <div class="field-group">
                 <div class="section-label">CALLSIGN &amp; COLOR</div>
                 <div class="input-block-with-action">
@@ -45,7 +38,6 @@
                     <button type="button" id="random-name-btn" class="micro-rnd-btn" title="Randomize callsign and color">&#x27F3; RND</button>
                 </div>
                 
-                <!-- Sleek, Non-Intrusive Stage Color Palette Ribbon (14px height) -->
                 <div class="palette-strip-container">
                     <div class="palette-strip" id="palette-swatches">
                         <button type="button" class="swatch-pill is-active" data-hex="#00f0ff" data-name="CYAN" style="--swatch-color: #00f0ff;" title="Cyan"></button>
@@ -60,20 +52,15 @@
                 </div>
             </div>
 
-            <!-- Single Unambiguous Action Button (BIG HIERARCHY) -->
             <button id="join-btn" class="mono-btn primary-action btn-enter-stage">
                 <span>ENTER STAGE</span>
                 <span class="arrow-glyph">&#8594;</span>
             </button>
         </div>
 
-        <!-- Covert FOH Operator Access Trigger (Invisible to Attendees) -->
         <button type="button" id="open-master-modal-btn" class="covert-operator-trigger" title="FOH Operator Access">OP-ACCESS</button>
     </div>
 
-    <!-- ============================================================== -->
-    <!-- FOH OPERATOR AUTHENTICATION MODAL                              -->
-    <!-- ============================================================== -->
     <div id="master-auth-modal" class="modal-overlay" style="display: none;">
         <div class="mono-card modal-card">
             <div class="mono-header">
@@ -84,19 +71,19 @@
                 <h2>FOH OPERATOR LOGIN</h2>
                 <p class="subtitle">ENTER PRIVATE 6-DIGIT MASTER KEY</p>
             </div>
-            
+
             <div id="master-error-msg" class="error-banner" style="display: none;"></div>
 
-            <div class="section-label">ROOM IDENTIFIER</div>
-            <div class="input-block">
-                <input type="text" id="master-room-input" placeholder="4-CHAR ROOM CODE" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false">
+            <div class="field-group">
+                <div class="section-label">ACTIVE ROOM</div>
+                <input type="text" id="master-room-input" class="mono-input" placeholder="ROOM" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false">
             </div>
 
-            <div class="section-label">MASTER KEY (OP-XXXXXX)</div>
-            <div class="input-block">
-                <input type="password" id="master-key-input" placeholder="OPERATOR KEY" maxlength="12" autocomplete="off" spellcheck="false">
+            <div class="field-group">
+                <div class="section-label">SECRET MASTER KEY OR 4-DIGIT PIN</div>
+                <input type="password" id="master-key-input" class="mono-input" placeholder="OP-XXXXXX or 1234" autocomplete="off" spellcheck="false">
             </div>
-            
+
             <div class="modal-actions-row">
                 <button type="button" id="master-auth-submit-btn" class="mono-btn primary-action">
                     <span>AUTHENTICATE</span>
@@ -109,11 +96,7 @@
         </div>
     </div>
 
-    <!-- ============================================================== -->
-    <!-- GENERAL ATTENDEE SURFACE (#ui)                                 -->
-    <!-- ============================================================== -->
     <div id="ui" style="display: none;">
-        <!-- Top HUD Bar -->
         <header id="status-bar">
             <div class="hud-left">
                 <span id="slot-dot" class="slot-color-dot" style="background-color: #00f0ff;"></span>
@@ -127,12 +110,8 @@
             </div>
         </header>
         
-        <!-- Main Interactive Workspace -->
         <main id="control-area">
-            
-            <!-- PERFORMER SURFACE (TOUCHDESIGNER CONTROLS) -->
             <div id="view-performer" class="role-view-container">
-                <!-- Left: Analog Joystick Reticle & 60Hz Oscilloscope Canvas -->
                 <section id="joystick-section" class="surface-pane">
                     <div class="pane-header">
                         <span>ANALOG RETICLE [X/Y]</span>
@@ -146,7 +125,6 @@
                             <div class="reticle-ring inner"></div>
                             <canvas id="vector-canvas"></canvas>
                             
-                            <!-- Physical Puck -->
                             <div id="joystick-puck">
                                 <div id="puck-center-dot" style="background-color: #00f0ff;"></div>
                             </div>
@@ -159,14 +137,12 @@
                     </div>
                 </section>
                 
-                <!-- Right: TouchDesigner Actions & Dual Sliders -->
                 <section id="actions-section" class="surface-pane">
                     <div class="pane-header">
                         <span>TOUCHDESIGNER ACTIONS</span>
                         <span id="performer-status-badge" class="hud-tag cyan">ACTIVE LINK</span>
                     </div>
 
-                    <!-- Dynamic Action Trigger Pool (DOM Pool b1-b4) -->
                     <div id="dynamic-controls" class="actions-grid">
                         <button type="button" class="action-btn mono-btn" id="btn-b1" data-id="b1">
                             <span class="btn-primary-title" id="btn-title-b1">ROTATE 360°</span>
@@ -186,9 +162,7 @@
                         </button>
                     </div>
 
-                    <!-- Dynamic Sliders Stack (DOM Pool s1-s4) -->
                     <div class="sliders-stack" id="sliders-stack">
-                        <!-- s1: Swim Speed -->
                         <div class="slider-module" id="slider-module-s1" data-id="s1">
                             <div class="slider-header">
                                 <span class="slider-title" id="slider-title-s1">SWIM SPEED (s1)</span>
@@ -199,7 +173,6 @@
                             </div>
                         </div>
 
-                        <!-- s2: Scale / Size -->
                         <div class="slider-module" id="slider-module-s2" data-id="s2">
                             <div class="slider-header">
                                 <span class="slider-title" id="slider-title-s2">SCALE / SIZE (s2)</span>
@@ -210,7 +183,6 @@
                             </div>
                         </div>
 
-                        <!-- s3: Auxiliary Fader (DOM pool) -->
                         <div class="slider-module" id="slider-module-s3" data-id="s3" style="display: none;">
                             <div class="slider-header">
                                 <span class="slider-title" id="slider-title-s3">CHANNEL 3 (s3)</span>
@@ -221,7 +193,6 @@
                             </div>
                         </div>
 
-                        <!-- s4: Auxiliary Fader (DOM pool) -->
                         <div class="slider-module" id="slider-module-s4" data-id="s4" style="display: none;">
                             <div class="slider-header">
                                 <span class="slider-title" id="slider-title-s4">CHANNEL 4 (s4)</span>
@@ -235,21 +206,18 @@
                 </section>
             </div>
 
-            <!-- AUDIENCE SPECTATOR HYPE SURFACE -->
             <div id="view-audience" class="role-view-container audience-dashboard" style="display: none;">
                 <div class="audience-inner">
                     <div class="audience-header">
-                        <h2>AUDIENCE HYPE & BEAT PULSE</h2>
+                        <h2>AUDIENCE HYPE &amp; BEAT PULSE</h2>
                         <p class="audience-sub">Zero slot consumption // Direct crowd energy stream</p>
                     </div>
 
-                    <!-- BPM Tap Pulser -->
                     <button type="button" class="bpm-pulser-btn" id="audience-bpm-tap">
                         <span class="bpm-number" id="bpm-number">128</span>
                         <span class="bpm-label">TAP TO BEAT</span>
                     </button>
 
-                    <!-- Crowd Reaction Matrix (Zero Emojis // Swiss Brutalist Badges) -->
                     <div class="reactions-matrix">
                         <button type="button" class="reaction-tile" data-reaction="ignite">
                             <span class="reaction-badge">[01 // IGN]</span>
@@ -270,13 +238,9 @@
                     </div>
                 </div>
             </div>
-
         </main>
     </div>
 
-    <!-- ============================================================== -->
-    <!-- DEDICATED FOH MASTER OPERATOR CONSOLE (#master-ui)             -->
-    <!-- ============================================================== -->
     <div id="master-ui" style="display: none;">
         <header id="master-status-bar">
             <div class="hud-left">
@@ -293,9 +257,7 @@
         </header>
 
         <main class="master-workspace">
-            <!-- Column 1: Show Control & Scene Environment Rack -->
             <div class="master-col col-show-control">
-                <!-- Block 1: Global Show Scene Switcher -->
                 <div class="master-block">
                     <div class="master-block-header flex-between">
                         <span>GLOBAL SHOW SCENE</span>
@@ -309,14 +271,12 @@
                     <p class="master-note">Transmits `/bridge/scene` live to TouchDesigner. Syncs video and mobile profiles.</p>
                 </div>
 
-                <!-- Block 2: Scene-Adaptive Environment Parameters Rack -->
                 <div class="master-block" id="master-scene-controls-block">
                     <div class="master-block-header flex-between">
                         <span>SCENE PARAMETERS RACK</span>
                         <span id="master-active-scene-badge" class="hud-tag green">AQUARIUM</span>
                     </div>
 
-                    <!-- 2A: Aquarium Controls Rack -->
                     <div id="scene-controls-aquarium" class="scene-rack-panel">
                         <div class="rack-actions-grid">
                             <button type="button" class="mono-btn rack-action-btn" id="rack-btn-scare" data-env="scare">
@@ -359,7 +319,6 @@
                         </div>
                     </div>
 
-                    <!-- 2B: Particle Canvas Controls Rack -->
                     <div id="scene-controls-canvas" class="scene-rack-panel" style="display: none;">
                         <div class="rack-actions-grid">
                             <button type="button" class="mono-btn rack-action-btn" id="rack-btn-burst" data-env="canvas_burst">
@@ -393,7 +352,6 @@
                         </div>
                     </div>
 
-                    <!-- 2C: QR Banner Controls Rack -->
                     <div id="scene-controls-qr" class="scene-rack-panel" style="display: none;">
                         <div class="rack-info-box">
                             <span class="hud-tag cyan">LOBBY ONBOARDING MODE</span>
@@ -401,14 +359,12 @@
                         </div>
                     </div>
 
-                    <!-- 2D: Dynamic / Custom Scene Controls Rack -->
                     <div id="scene-controls-dynamic" class="scene-rack-panel" style="display: none;">
                         <div id="dynamic-rack-actions" class="rack-actions-grid"></div>
                         <div id="dynamic-rack-sliders" class="rack-sliders-stack"></div>
                     </div>
                 </div>
 
-                <!-- Block 3: Emergency Stage Cues -->
                 <div class="master-block cues-block">
                     <div class="master-block-header">EMERGENCY STAGE CUES</div>
                     <div class="cues-row">
@@ -419,7 +375,6 @@
                 </div>
             </div>
 
-            <!-- Column 2: Performance Core & Performer Matrix -->
             <div class="master-col col-roster">
                 <div class="master-block roster-block" style="height: 100%;">
                     <div class="master-block-header flex-between">
@@ -438,17 +393,13 @@
                                     <th>ACTION</th>
                                 </tr>
                             </thead>
-                            <tbody id="master-roster-tbody">
-                                <!-- Injected strictly via textContent DOM creation -->
-                            </tbody>
+                            <tbody id="master-roster-tbody"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-            <!-- Column 3: Profile Switcher & Telemetry Observability -->
             <div class="master-col col-telemetry">
-                <!-- Profile Switcher -->
                 <div class="master-block">
                     <div class="master-block-header">STAGE CONTROLLER PROFILE</div>
                     <div class="profile-switcher-buttons" id="master-profile-buttons">
@@ -460,7 +411,6 @@
                     <p class="master-note">Hot-reloads UI layout across all active performer screens.</p>
                 </div>
 
-                <!-- Telemetry Monitor -->
                 <div class="master-block telemetry-hud-block">
                     <div class="master-block-header">SYSTEM OBSERVABILITY</div>
                     <div class="telemetry-metric-grid">
@@ -483,7 +433,6 @@
                     </div>
                 </div>
 
-                <!-- Live Engine Health & Diagnostics -->
                 <div class="master-block diagnostics-block">
                     <div class="master-block-header flex-between">
                         <span>ENGINE DIAGNOSTICS</span>
@@ -508,7 +457,6 @@
         </main>
     </div>
 
-    <!-- Client Script -->
     <script src="app.js?v=9"></script>
 </body>
 </html>

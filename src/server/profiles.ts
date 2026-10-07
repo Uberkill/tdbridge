@@ -35,13 +35,28 @@ export const BUILTIN_PROFILES: Record<string, ControllerProfile> = {
     },
     touchpad: {
         id: 'touchpad',
-        name: 'Touchpad & Canvas',
+        name: 'Bioluminescent Reef & Canvas',
         type: 'touchpad',
         blueprint: [
-            { type: 'button', id: 'b1', label: 'Touch Active', color: '#4285f4' },
-            { type: 'button', id: 'b2', label: 'Clear / Pulse', color: '#ea4335' },
-            { type: 'button', id: 'b3', label: 'Mode Cycle', color: '#34a853' },
-            { type: 'slider', id: 's1', label: 'Brush Size', color: '#fbbc05', default_val: 0.5, min: 0.1, max: 1.0, step: 0.01 }
+            { type: 'button', id: 'b1', alias: 'action1', label: 'Spore Bloom', color: '#00e676' },
+            { type: 'button', id: 'b2', alias: 'action2', label: 'Reef Tide', color: '#ff4081' },
+            { type: 'button', id: 'b3', alias: 'action3', label: 'Bio Glow', color: '#00b4d8' },
+            { type: 'button', id: 'b4', alias: 'action4', label: 'Fluid Curl', color: '#7c4dff' },
+            { type: 'slider', id: 's1', alias: 'slider1', label: 'Mycelium Spread', color: '#00e676', default_val: 0.72, min: 0.1, max: 1.0, step: 0.02 },
+            { type: 'slider', id: 's2', alias: 'slider2', label: 'Spore Density', color: '#00b4d8', default_val: 0.60, min: 0.2, max: 1.5, step: 0.02 }
+        ]
+    },
+    canvas: {
+        id: 'canvas',
+        name: 'Bioluminescent Reef & Canvas',
+        type: 'touchpad',
+        blueprint: [
+            { type: 'button', id: 'b1', alias: 'action1', label: 'Spore Bloom', color: '#00e676' },
+            { type: 'button', id: 'b2', alias: 'action2', label: 'Reef Tide', color: '#ff4081' },
+            { type: 'button', id: 'b3', alias: 'action3', label: 'Bio Glow', color: '#00b4d8' },
+            { type: 'button', id: 'b4', alias: 'action4', label: 'Fluid Curl', color: '#7c4dff' },
+            { type: 'slider', id: 's1', alias: 'slider1', label: 'Mycelium Spread', color: '#00e676', default_val: 0.72, min: 0.1, max: 1.0, step: 0.02 },
+            { type: 'slider', id: 's2', alias: 'slider2', label: 'Spore Density', color: '#00b4d8', default_val: 0.60, min: 0.2, max: 1.5, step: 0.02 }
         ]
     },
     faderbank: {

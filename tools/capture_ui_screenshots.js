@@ -1,8 +1,22 @@
 const { chromium } = require('playwright');
 const path = require('path');
+const http = require('http');
+
+async function getRoomCode() {
+    return new Promise(resolve => {
+        http.get('http://127.0.0.1:8080/health', res => {
+            let data = '';
+            res.on('data', c => data += c);
+            res.on('end', () => {
+                try { resolve(JSON.parse(data).room || ''); } catch (e) { resolve(''); }
+            });
+        }).on('error', () => resolve(''));
+    });
+}
 
 async function capture() {
-    console.log("Launching headless browser to capture Swiss Monolith UI...");
+    const roomCode = await getRoomCode();
+    console.log(`Launching headless browser to capture Swiss Monolith UI (Room: ${roomCode})...`);
     const browser = await chromium.launch({ headless: true });
     
     // 1. Mobile viewport (iPhone 14 Pro style)
@@ -12,8 +26,9 @@ async function capture() {
     });
     const page = await context.newPage();
 
-    console.log("Navigating to http://127.0.0.1:8080?room=HFTE...");
-    await page.goto('http://127.0.0.1:8080?room=HFTE', { waitUntil: 'networkidle' });
+    const targetUrl = roomCode ? `http://127.0.0.1:8080?room=${roomCode}` : 'http://127.0.0.1:8080';
+    console.log(`Navigating to ${targetUrl}...`);
+    await page.goto(targetUrl, { waitUntil: 'networkidle' });
 
     const gateShotPath = path.resolve(__dirname, '..', 'public', 'screenshot_gate_swiss.png');
     await page.screenshot({ path: gateShotPath });

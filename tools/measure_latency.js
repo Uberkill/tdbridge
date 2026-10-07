@@ -3,7 +3,7 @@ const http = require('http');
 
 async function getRoom() {
     return new Promise((res, rej) => {
-        http.get('http://127.0.0.1:8080/room', (r) => {
+        http.get('http://127.0.0.1:8080/health', (r) => {
             let d = '';
             r.on('data', c => d += c);
             r.on('end', () => res(JSON.parse(d).room));

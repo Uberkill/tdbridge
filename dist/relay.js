@@ -230,9 +230,9 @@ let lastErrorTime = 0;
 let tdLastSeen = 0;
 let tdClones = 0;
 let tdLoopbackLatency = 0;
-let currentProfile = 'gamepad';
-let activeScene = 'aquarium';
-let activeBlueprint = profiles_1.BUILTIN_PROFILES.gamepad.blueprint;
+let currentProfile = 'touchpad';
+let activeScene = 'canvas';
+let activeBlueprint = profiles_1.BUILTIN_PROFILES.touchpad.blueprint;
 const envStates = {
     num_bots: 5,
     bot_speed: 0.25,
@@ -700,6 +700,7 @@ function freeSlot(index) {
         sendOSC_Float(index + 1, "action1", 0);
         sendOSC_Float(index + 1, "action2", 0);
         sendOSC_Float(index + 1, "action3", 0);
+        sendOSC_Float(index + 1, "action4", 0);
         sendOSC_String(index + 1, "name", "");
         sendOSC_Float(index + 1, "active", 0);
         updatePlayerCount();
@@ -796,7 +797,7 @@ wss.on('connection', (ws, req) => {
                     slots[slotIndex].lastSeen = now;
                 }
             }
-            // Latency Ping-Pong
+            // Latency ping
             if (data.type === 'ping') {
                 if (typeof data.rtt === 'number') {
                     clientRtts.set(ws, Math.max(0, Math.min(5000, data.rtt)));
@@ -804,7 +805,7 @@ wss.on('connection', (ws, req) => {
                 ws.send(JSON.stringify({ type: 'pong', t: data.t }));
                 return;
             }
-            // Client-Side Exception Beacon
+            // Client error telemetry
             if (data.type === 'client_telemetry_error') {
                 const cleanErr = String(data.message || 'Unknown Client Error').substring(0, 140);
                 const clientRef = (slotIndex !== -1 && slots[slotIndex]?.name && slots[slotIndex]?.isJoined)
@@ -813,7 +814,7 @@ wss.on('connection', (ws, req) => {
                 addLog(`[CLIENT ERROR] [${clientRef}] ${cleanErr} (line ${data.line || '?'}:${data.col || '?'})`);
                 return;
             }
-            // Master FOH Operator Login
+            // Operator login
             if (data.type === 'master_login') {
                 if (isIpRateLimited(clientIp)) {
                     ws.send(JSON.stringify({
@@ -845,7 +846,6 @@ wss.on('connection', (ws, req) => {
                     }));
                     return;
                 }
-                // Authentication Successful
                 unauthenticatedSockets.delete(ws);
                 socketConnectedAt.delete(ws);
                 ws._masterAttempts = 0;
@@ -868,7 +868,7 @@ wss.on('connection', (ws, req) => {
                 ws.send(JSON.stringify(getRosterPayload()));
                 return;
             }
-            // Master Host Commands (Strict Session Token Binding)
+            // Operator host command
             if (data.type === 'host_command') {
                 const sessionToken = masterSockets.get(ws);
                 if (!sessionToken || sessionToken !== data.token) {
@@ -927,7 +927,7 @@ wss.on('connection', (ws, req) => {
                 ws.send(JSON.stringify({ type: 'host_ack', action: data.action, status: 'ok' }));
                 return;
             }
-            // Environment / Auxiliary Controls
+            // Environment controls
             if (data.type === 'env') {
                 const sessionToken = masterSockets.get(ws);
                 const isMaster = !!sessionToken && (data.token === sessionToken);
@@ -960,7 +960,7 @@ wss.on('connection', (ws, req) => {
                 }
                 return;
             }
-            // General Attendee Onboarding: Performer vs Spectator
+            // Attendee onboarding
             if (data.type === 'join') {
                 const reqRoom = String(data.room || '').trim().toUpperCase();
                 if (reqRoom !== ACTIVE_ROOM_CODE) {
@@ -971,7 +971,7 @@ wss.on('connection', (ws, req) => {
                 }
                 unauthenticatedSockets.delete(ws);
                 socketConnectedAt.delete(ws);
-                // Pathway 1: Audience Spectator (0 performer slots consumed)
+                // Audience spectator
                 if (data.role === 'audience' || data.role === 'spectator') {
                     audienceSockets.add(ws);
                     ws.send(JSON.stringify({
@@ -984,7 +984,7 @@ wss.on('connection', (ws, req) => {
                     broadcastRoster();
                     return;
                 }
-                // Pathway 2: Interactive Performer (Claims human slot 6-100)
+                // Interactive performer
                 const assignedIndex = getAvailableSlot();
                 if (assignedIndex === -1) {
                     ws.send(JSON.stringify({ type: 'rejected', reason: 'STAGE FULL // ALL 95 PERFORMER SLOTS ACTIVE' }));
@@ -994,7 +994,6 @@ wss.on('connection', (ws, req) => {
                 const playerNum = assignedIndex + 1;
                 socketToSlot.set(ws, assignedIndex);
                 slotStates[assignedIndex] = Object.create(null);
-                // Sanitize Handle to prevent DOM XSS / OSC issues
                 const rawName = String(data.name || '').replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 12);
                 const cleanName = rawName.length > 0 ? rawName : `PLAYER_${playerNum}`;
                 const cleanColor = (typeof data.color_hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.color_hex))
@@ -1009,7 +1008,6 @@ wss.on('connection', (ws, req) => {
                     isJoined: true,
                     role: 'performer'
                 };
-                // Notify Performer
                 ws.send(JSON.stringify({
                     type: 'assigned_slot',
                     slot: playerNum,
@@ -1019,7 +1017,6 @@ wss.on('connection', (ws, req) => {
                     active_scene: activeScene,
                     ui_blueprint: activeBlueprint
                 }));
-                // Update TouchDesigner OSC Pipeline
                 sendOSC_String(playerNum, "name", cleanName);
                 sendOSC_String(playerNum, "color", cleanColor);
                 sendOSC_Float(playerNum, "active", 1);
@@ -1028,7 +1025,7 @@ wss.on('connection', (ws, req) => {
                 broadcastRoster();
                 return;
             }
-            // Real-Time Performer Controls
+            // Performer controls
             if (data.type === 'control') {
                 if (slotIndex === -1 || !slots[slotIndex] || slots[slotIndex].ws !== ws || !slots[slotIndex].isJoined)
                     return;
@@ -1049,12 +1046,16 @@ wss.on('connection', (ws, req) => {
                         sendOSC_Float(playerNum, 'action2', value);
                     if (rawId === 'b3')
                         sendOSC_Float(playerNum, 'action3', value);
+                    if (rawId === 'b4')
+                        sendOSC_Float(playerNum, 'action4', value);
                     if (rawId === 'action1')
                         sendOSC_Float(playerNum, 'b1', value);
                     if (rawId === 'action2')
                         sendOSC_Float(playerNum, 'b2', value);
                     if (rawId === 'action3')
                         sendOSC_Float(playerNum, 'b3', value);
+                    if (rawId === 'action4')
+                        sendOSC_Float(playerNum, 'b4', value);
                     if (rawId === 's1')
                         sendOSC_Float(playerNum, 'slider1', value);
                     if (rawId === 's2')
@@ -1066,7 +1067,7 @@ wss.on('connection', (ws, req) => {
                 }
                 return;
             }
-            // Analog Joystick Vector
+            // Joystick vector
             if (data.type === 'input') {
                 if (slotIndex === -1 || !slots[slotIndex] || slots[slotIndex].ws !== ws || !slots[slotIndex].isJoined)
                     return;
@@ -1087,7 +1088,7 @@ wss.on('connection', (ws, req) => {
                 }
                 return;
             }
-            // Audience & Performer Beat Tap (Throttled to <= 10 packets/s)
+            // Beat tap
             if (data.type === 'tap') {
                 const tapTracker = audienceTapCounters.get(ws) || { count: 0, windowStart: now };
                 if (now - tapTracker.windowStart > 1000) {
@@ -1117,7 +1118,7 @@ wss.on('connection', (ws, req) => {
                 }
                 return;
             }
-            // Zero All Performer Controls
+            // Flush controls
             if (data.type === 'flush') {
                 if (slotIndex === -1 || !slots[slotIndex] || slots[slotIndex].ws !== ws)
                     return;
@@ -1134,6 +1135,7 @@ wss.on('connection', (ws, req) => {
                 sendOSC_Float(playerNum, "action1", 0);
                 sendOSC_Float(playerNum, "action2", 0);
                 sendOSC_Float(playerNum, "action3", 0);
+                sendOSC_Float(playerNum, "action4", 0);
                 return;
             }
         }
@@ -1164,10 +1166,10 @@ wss.on('connection', (ws, req) => {
         }
     });
 });
-// Watchdog: Clean unauthenticated sockets > 10s and inactive performers > 8s
+// Inactivity watchdog
 setInterval(() => {
     const now = Date.now();
-    // 1. Unauthenticated sockets timeout (15s deadline to join or auth)
+    // Unauthenticated socket timeout
     for (const ws of unauthenticatedSockets) {
         const connectedTime = socketConnectedAt.get(ws) || 0;
         if (connectedTime > 0 && now - connectedTime > 15000) {
@@ -1193,7 +1195,7 @@ setInterval(() => {
             addLog(`[TIMEOUT] Reaped idle unauthenticated socket after 15s.`);
         }
     }
-    // 2. Auth failure IP table TTL pruning
+    // Auth failure rate-limit TTL pruning
     for (const [ip, entry] of masterAuthFailures.entries()) {
         if (entry.lockedUntil > 0 && now >= entry.lockedUntil) {
             masterAuthFailures.delete(ip);
@@ -1202,7 +1204,7 @@ setInterval(() => {
             masterAuthFailures.delete(ip);
         }
     }
-    // 2. Active performer heartbeat timeout (8s silence)
+    // Performer silence timeout
     for (let i = 5; i < MAX_USERS; i++) {
         const slot = slots[i];
         if (slot.ws !== null && slot.isJoined) {
@@ -1219,33 +1221,31 @@ setInterval(() => {
         }
     }
 }, 2000);
-// Deterministic 1000ms Heartbeat to TouchDesigner & Roster Stream
+// Heartbeat and roster broadcast
 setInterval(() => {
     sendOSC_String(0, "room_code", ACTIVE_ROOM_CODE);
     safeUdpSend({ address: '/bridge/master_code', args: [{ type: 's', value: ACTIVE_MASTER_KEY }] });
     if (cloudflareUrl) {
         safeUdpSend({ address: '/bridge/tunnel', args: [{ type: 's', value: cloudflareUrl }] });
     }
-    // Broadcast live telemetry & roster to open Master Consoles
     if (masterSockets.size > 0) {
         broadcastRoster();
     }
 }, 1000);
-// Loopback ping to TouchDesigner (measures IPC / UDP latency)
+// TouchDesigner loopback ping
 setInterval(() => {
     safeUdpSend({
         address: "/bridge/ping",
         args: [{ type: "f", value: Date.now() }]
     });
 }, 2000);
-// Resilient Graceful Shutdown & Child Process Tree Purge
+// Graceful shutdown
 let isShuttingDown = false;
 function gracefulShutdown(signal) {
     if (isShuttingDown)
         return;
     isShuttingDown = true;
     addLog(`[SYSTEM] Initiating clean shutdown (${signal})...`);
-    // Hard fallback timeout (2000ms)
     const forceExitTimer = setTimeout(() => {
         try {
             if (fs_1.default.existsSync(PID_FILE)) {
@@ -1260,7 +1260,7 @@ function gracefulShutdown(signal) {
         process.exit(1);
     }, 2000);
     forceExitTimer.unref();
-    // 1. Synchronously kill cloudflared process tree if active
+    // Terminate cloudflared
     if (cf && cf.pid) {
         try {
             (0, child_process_1.spawnSync)('taskkill', ['/F', '/T', '/PID', String(cf.pid)], { stdio: 'ignore' });
@@ -1269,7 +1269,7 @@ function gracefulShutdown(signal) {
             recordEvent('WARN', `Failed to kill cloudflared process: ${e?.message || e}`);
         }
     }
-    // 2. Terminate all client websockets cleanly
+    // Close client sockets
     for (const slot of slots) {
         if (slot.ws) {
             try {
@@ -1300,7 +1300,7 @@ function gracefulShutdown(signal) {
     audienceSockets.clear();
     masterSockets.clear();
     socketToSlot.clear();
-    // 3. Close network servers and sockets
+    // Close servers
     try {
         wss.close();
     }
@@ -1319,7 +1319,7 @@ function gracefulShutdown(signal) {
     catch (e) {
         recordEvent('WARN', `Failed to close UDP port: ${e?.message || e}`);
     }
-    // 4. Remove PID file
+    // Remove PID file
     try {
         if (fs_1.default.existsSync(PID_FILE)) {
             const currentPid = fs_1.default.readFileSync(PID_FILE, 'utf8').trim();

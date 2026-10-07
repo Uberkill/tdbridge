@@ -1,12 +1,27 @@
 const { chromium } = require('playwright');
 const path = require('path');
+const http = require('http');
+
+async function getRoomCode() {
+    return new Promise(resolve => {
+        http.get('http://127.0.0.1:8080/health', res => {
+            let data = '';
+            res.on('data', c => data += c);
+            res.on('end', () => {
+                try { resolve(JSON.parse(data).room || ''); } catch (e) { resolve(''); }
+            });
+        }).on('error', () => resolve(''));
+    });
+}
 
 async function testInteractive() {
-    console.log("Verifying active interactive states in Swiss Monolith UI...");
+    const roomCode = await getRoomCode();
+    console.log(`Verifying active interactive states in Swiss Monolith UI (Room: ${roomCode})...`);
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 393, height: 852 } });
 
-    await page.goto('http://127.0.0.1:8080?room=HFTE', { waitUntil: 'networkidle' });
+    const targetUrl = roomCode ? `http://127.0.0.1:8080?room=${roomCode}` : 'http://127.0.0.1:8080';
+    await page.goto(targetUrl, { waitUntil: 'networkidle' });
 
     // Click random name
     await page.click('#random-name-btn');

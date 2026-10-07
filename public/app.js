@@ -1,10 +1,4 @@
-// ============================================================================
-// TDBRIDGE // SWISS GRAPHIC MONOLITH CLIENT APPLICATION
-// Multi-touch, role-segregated, cryptographic master console, 60Hz input pipeline.
-// ============================================================================
-// ============================================================================
-// 0. TELEMETRY & FLIGHT RECORDER (Global Exception Traps)
-// ============================================================================
+// TDBridge client controller & operator interface
 const recentErrorFingerprints = new Map();
 let errorBeaconCountThisMinute = 0;
 let lastErrorMinuteTimestamp = Date.now();
@@ -66,12 +60,10 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 let pingIntervalTimer = null;
 let lastPingSentTime = 0;
 let currentRtt = 0;
-// Top-Level View Containers
 const gate = document.getElementById('gate');
 const ui = document.getElementById('ui');
 const masterUi = document.getElementById('master-ui');
 const masterAuthModal = document.getElementById('master-auth-modal');
-// General Lobby Controls
 const joinBtn = document.getElementById('join-btn');
 const exitBtn = document.getElementById('exit-btn');
 const slotIndicator = document.getElementById('slot-indicator');
@@ -83,14 +75,12 @@ const nameInput = document.getElementById('player-name');
 const randomNameBtn = document.getElementById('random-name-btn');
 const vectorReadout = document.getElementById('vector-readout');
 const swatchSection = document.getElementById('swatch-section');
-// FOH Master Modal Controls
 const openMasterModalBtn = document.getElementById('open-master-modal-btn');
 const masterAuthCancelBtn = document.getElementById('master-auth-cancel-btn');
 const masterAuthSubmitBtn = document.getElementById('master-auth-submit-btn');
 const masterRoomInput = document.getElementById('master-room-input');
 const masterKeyInput = document.getElementById('master-key-input');
 const masterErrorMsg = document.getElementById('master-error-msg');
-// FOH Master Console Controls
 const masterExitBtn = document.getElementById('master-exit-btn');
 const masterTdStatus = document.getElementById('master-td-status');
 const masterRttStatus = document.getElementById('master-rtt-status');
@@ -100,7 +90,6 @@ const metricPerformers = document.getElementById('metric-performers');
 const metricSpectators = document.getElementById('metric-spectators');
 const metricTdFps = document.getElementById('metric-td-fps');
 const metricTdErrors = document.getElementById('metric-td-errors');
-// Sliders: s1-s4 (DOM Pool)
 const sliderS1 = document.getElementById('slider-s1');
 const sliderS1Readout = document.getElementById('slider-s1-readout');
 const sliderS2 = document.getElementById('slider-s2');
@@ -109,16 +98,13 @@ const sliderS3 = document.getElementById('slider-s3');
 const sliderS3Readout = document.getElementById('slider-s3-readout');
 const sliderS4 = document.getElementById('slider-s4');
 const sliderS4Readout = document.getElementById('slider-s4-readout');
-// Joystick Elements
 const joystickBoundary = document.getElementById('joystick-boundary');
 const joystickPuck = document.getElementById('joystick-puck');
 const puckCenterDot = document.getElementById('puck-center-dot');
 const vectorCanvas = document.getElementById('vector-canvas');
 const vctx = vectorCanvas ? vectorCanvas.getContext('2d') : null;
-// Views
 const viewPerformer = document.getElementById('view-performer');
 const viewAudience = document.getElementById('view-audience');
-// Segmented Room Code Elements
 const codeBoxes = [
     document.getElementById('code-0'),
     document.getElementById('code-1'),
@@ -126,9 +112,6 @@ const codeBoxes = [
     document.getElementById('code-3'),
 ];
 const roomCodeHidden = document.getElementById('room-code-input');
-// ============================================================================
-// 1. INITIALIZATION & URL HANDLING
-// ============================================================================
 const hostname = window.location.hostname;
 const protocol = window.location.protocol;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '' || hostname.startsWith('192.168') || hostname.startsWith('10.');
@@ -147,6 +130,24 @@ if (initialRoom.length === 4) {
         roomCodeHidden.value = initialRoom;
     if (masterRoomInput)
         masterRoomInput.value = initialRoom;
+}
+else {
+    // Non-blocking auto-room discovery for seamless 1-tap entry
+    fetch(`${httpUrlBase}/health`)
+        .then(res => res.json())
+        .then(data => {
+        if (data && data.room && data.room.length === 4) {
+            for (let i = 0; i < 4; i++) {
+                if (codeBoxes[i] && !codeBoxes[i].value)
+                    codeBoxes[i].value = data.room[i];
+            }
+            if (roomCodeHidden && !roomCodeHidden.value)
+                roomCodeHidden.value = data.room;
+            if (masterRoomInput && !masterRoomInput.value)
+                masterRoomInput.value = data.room;
+        }
+    })
+        .catch(() => { });
 }
 if (initialKey) {
     if (masterKeyInput)
@@ -213,7 +214,7 @@ function updateRoomCodeValue() {
     return code;
 }
 // Random Handle & Stage Color Generator
-const HANDLE_PREFIXES = ['NODE', 'VECTOR', 'AERO', 'PULSE', 'SIGNAL', 'VERTEX', 'MODEM', 'NEXUS'];
+const HANDLE_PREFIXES = ['JELLY', 'REEF', 'SPORE', 'CORAL', 'PULSE', 'TRENCH', 'ABYSS', 'LUMEN', 'AURA', 'HYDRO'];
 const swatchPills = document.querySelectorAll('.swatch-pill, .swatch');
 function selectSwatch(pill) {
     swatchPills.forEach(other => other.classList.remove('is-active'));
@@ -293,9 +294,7 @@ fetch(`${httpUrlBase}/branding`)
         brandSub.innerText = b.subtitle.toUpperCase();
 })
     .catch(() => { });
-// ============================================================================
-// 2. FOH OPERATOR AUTHENTICATION MODAL LOGIC
-// ============================================================================
+// Operator authentication modal
 if (openMasterModalBtn) {
     openMasterModalBtn.addEventListener('click', () => {
         const currentRoom = updateRoomCodeValue();
@@ -363,9 +362,7 @@ function executeMasterAuth() {
         startPingLoop();
     };
 }
-// ============================================================================
-// 3. GENERAL ATTENDEE ONBOARDING & CONNECTION
-// ============================================================================
+// Attendee onboarding and connection
 joinBtn.addEventListener('click', () => {
     reconnectAttempts = 0;
     let raw = nameInput.value.trim().toUpperCase();
@@ -620,9 +617,7 @@ function attachWebSocketHandlers() {
         }
     };
 }
-// ============================================================================
-// 4. REAL RTT PING PROTOCOL
-// ============================================================================
+// RTT latency tracking
 function startPingLoop() {
     if (pingIntervalTimer)
         clearInterval(pingIntervalTimer);
@@ -649,9 +644,7 @@ function handlePong(data) {
         }
     }
 }
-// ============================================================================
-// 5. MASTER ROSTER SYNCHRONIZATION & ACTIONS
-// ============================================================================
+// Master roster synchronization
 function handleRosterUpdate(data) {
     if (!masterUi || masterUi.style.display === 'none')
         return;
@@ -725,7 +718,7 @@ function handleRosterUpdate(data) {
             }
         });
     }
-    // Build Roster Table strictly using textContent & DOM Elements (Zero innerHTML)
+    // Render roster table
     if (masterRosterTbody && Array.isArray(data.performers)) {
         masterRosterTbody.textContent = ''; // Safe wipe of child nodes
         if (data.performers.length === 0) {
@@ -825,9 +818,7 @@ function sendHostCommand(action, extra) {
         }));
     }
 }
-// ============================================================================
-// 5B. FOH MASTER SCENE PARAMETERS RACK & ENVIRONMENT CONTROLS
-// ============================================================================
+// Scene controls rack
 function updateSceneControlsRack(scene) {
     const sc = (scene || 'aquarium').toLowerCase();
     const aquariumRack = document.getElementById('scene-controls-aquarium');
@@ -1093,9 +1084,7 @@ if (rackSliderTurb) {
         sendThrottledEnv('canvas_speed', val);
     });
 }
-// ============================================================================
-// 6. JOYSTICK ERGONOMICS & POINTER CAPTURE
-// ============================================================================
+// Joystick and pointer handling
 let isDraggingJoy = false;
 let joyActivePointerId = null;
 let joyBounds = null;
@@ -1341,9 +1330,7 @@ function flushInputs() {
         ws.send(JSON.stringify({ type: 'flush' }));
     }
 }
-// ============================================================================
-// 8. AUDIENCE SPECTATOR HYPE (ZERO EMOJIS)
-// ============================================================================
+// Audience interactions
 const audienceBpmBtn = document.getElementById('audience-bpm-tap');
 const bpmNumber = document.getElementById('bpm-number');
 let tapHistory = [];
@@ -1385,9 +1372,7 @@ reactionTiles.forEach(tile => {
         safeHaptic();
     });
 });
-// ============================================================================
-// 9. DESKTOP KEYBOARD BINDINGS (WASD, 1-4, SPACE)
-// ============================================================================
+// Keyboard controls
 let keyState = { w: false, a: false, s: false, d: false };
 window.addEventListener('keydown', (e) => {
     if (ui.style.display !== 'flex')
@@ -1495,9 +1480,7 @@ function triggerVirtualButton(id, active) {
     if (active)
         safeHaptic();
 }
-// ============================================================================
-// 10. 60Hz THROTTLED INPUT TRANSMISSION LOOP
-// ============================================================================
+// Throttled input loop
 function startInputLoop() {
     if (isLooping)
         return;

@@ -1,6 +1,6 @@
-# TDBridge Technical Architecture & Systems Engineering Specification
+# TDBridge Technical Architecture
 
-Comprehensive engineering specification of network protocols, TouchDesigner execution patterns, data schemas, security models, responsive layouts, and reliability guarantees.
+System specification covering network topology, TouchDesigner ingestion models, channel schemas, security controls, and responsive layout scaling.
 
 ---
 
@@ -14,24 +14,24 @@ Phone / Desktop ──(WebSocket, Port 8080)──► Node.js Relay ──(OSC/U
 
 | Route | Protocol | Default Port | Direction | Purpose | Throttling & Cadence |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Client $\leftrightarrow$ Relay** | WebSocket (`ws://` / `wss://`) | `8080` | Bi-directional | Attendee input packets, FOH operator streaming, REST health endpoints (`/health`, `/telemetry`). | 60Hz per slot cap, 1024-byte payload limit. |
-| **Relay $\rightarrow$ TouchDesigner** | OSC over UDP | `9000` | Egress | Real-time channel updates (`/slot_<N>_<chan>`), scene cues (`/bridge/scene`), environment parameters (`/env/<param>`). | Synchronous on frame/packet receipt. |
-| **TouchDesigner $\rightarrow$ Relay** | OSC over UDP | `9001` | Ingress | Cook FPS telemetry (`/td/fps`), error alerts (`/td/error`), scene registries (`/td/scene_list`), session title (`/td/session_name`), and Master PIN (`/bridge/master_pin`). | 1000ms heartbeat loop (with server-side value-change guards). |
-| **Public Ingress** | HTTPS / WSS | `443` | Ingress | Optional Cloudflare tunnel (`bin/cloudflared.exe`) reverse proxying to local port 8080. | Handled by Cloudflare edge. |
-| **MCP Test Bridge** | HTTP / REST | `9980` | Ingress | Local WebServer DAT inside TouchDesigner for deterministic automated testing. | On-demand test invocation. |
+| **Client <-> Relay** | WebSocket (`ws://` / `wss://`) | `8080` | Bi-directional | Attendee input packets, FOH operator streaming, REST health endpoints (`/health`, `/telemetry`). | 60Hz per-slot cap, 1024-byte payload limit. |
+| **Relay -> TouchDesigner** | OSC over UDP | `9000` | Outbound | Real-time channel updates (`/slot_<N>_<chan>`), scene cues (`/bridge/scene`), environment parameters (`/env/<param>`). | Synchronous on frame receipt. |
+| **TouchDesigner -> Relay** | OSC over UDP | `9001` | Inbound | Cook FPS telemetry (`/td/fps`), error alerts (`/td/error`), scene registries (`/td/scene_list`), session title (`/td/session_name`), and Master PIN (`/bridge/master_pin`). | 1000ms heartbeat loop with server-side value-change guards. |
+| **Public WAN Ingress** | HTTPS / WSS | `443` | Inbound | Optional Cloudflare tunnel (`bin/cloudflared.exe`) reverse proxying to local port 8080. | Handled by Cloudflare edge. |
 
 ---
 
 ## 2. TouchDesigner Ingestion & Cook-Loop Immunity
 
-A classic vulnerability in TouchDesigner OSC architectures occurs when an `oscinDAT` modifies a table referenced by downstream visual components during callback execution, creating an infinite recursive cook dependency loop:
+In TouchDesigner, writing to a table inside an `oscinDAT` Python callback that visual operators reference downstream triggers a recursive cook dependency loop:
 
 ```text
 oscinDAT (callback) ──writes to──► TableDAT ──dirty event──► oscinDAT cooks again (LOCKUP)
 ```
 
 ### Decoupled Ingestion Pipeline
-TDBridge enforces a strictly decoupled, 4-stage ingestion model:
+
+TDBridge completely decouples network packet receipt from data writing:
 
 ```text
 Incoming UDP Packets
@@ -49,16 +49,18 @@ Incoming UDP Packets
 ```
 
 ### Table Dimension Invariant
-- `players_data` is initialized with **exactly 101 rows $\times$ 15 columns** (Row 0 = headers, Rows 1–100 = Slots 1–100).
-- Dynamic row insertion or deletion is strictly forbidden to prevent Replicator COMP stalls and GPU memory reallocation spikes.
-- Slots 1–5 are reserved for autonomous AI bots and ambient particle guides; Slots 6–100 are assigned to human performers.
+
+- `players_data` is initialized with **exactly 101 rows x 15 columns** (Row 0 = headers, Rows 1–100 = Slots 1–100).
+- Tables never resize dynamically during runtime, preventing Replicator COMP stalls and GPU memory reallocation spikes.
+- Slots 1–5 are reserved for autonomous ambient bots; Slots 6–100 are assigned to human performers.
 
 ---
 
 ## 3. Data Schema & Channel Union
 
 ### Numeric CHOP Union (`out_players_chop`)
-Downstream generative visual systems require invariant channel names and lengths. `out_players_chop` outputs a constant **13 channels $\times$ 100 samples**:
+
+Downstream generative visual systems require invariant channel names and lengths. `out_players_chop` outputs a constant **13 channels x 100 samples**:
 
 | Channel | Range | Source Profile | Description |
 | :--- | :--- | :--- | :--- |
@@ -80,25 +82,27 @@ Downstream generative visual systems require invariant channel names and lengths
 
 ---
 
-## 4. Single-Action Attendee Ingress & Dual-Code Security
+## 4. Attendee Onboarding & Security
 
-### Single-Action Onboarding Flow
-- The onboarding gate eliminates role bifurcations (`[01 // PERFORMER]` vs `[02 // SPECTATOR]`). Every attendee joins directly as a full interactive Performer with one click: **`[ ENTER STAGE -> ]`**.
+### Attendee Onboarding Flow
+
+- The onboarding gate eliminates role bifurcations. Every attendee enters directly as an interactive performer with one click: **`[ ENTER STAGE -> ]`**.
 - Human slots are assigned in the range 6–100 (up to 95 concurrent active performers).
-- If venue capacity is reached (95/95 slots full), incoming clients receive a clean rejection notice (`ROOM FULL // 95/95 SLOTS OCCUPIED`).
+- If capacity is reached (95/95 human slots occupied), incoming clients receive a clean rejection notice.
 
-### Dual-Code Security Matrix
-1. **Public Room Code (4 characters, e.g. `HJHX`):** Displayed on screen/QR for attendee entry. Public participants have zero access to master broadcast cues or roster moderation.
-2. **Private Master Key (`OP-XXXXXX`) or 4-Digit PIN (`1234`):** Displayed strictly in the operator terminal and TouchDesigner custom parameters.
-3. **Covert FOH Operator Access:** Accessed via a low-opacity `OP-ACCESS` micro-trigger at the bottom-right of the viewport (`opacity: 0.15`), URL parameter (`?key=1234`), or keyboard shortcuts (`Ctrl+Shift+O`, `~`).
-4. **Brute-Force & Flood Hardening:** Sockets failing master authentication 3 consecutive times are terminated with code `4003`. Remote IPs failing 5 times enter a 60-second lockout.
-5. **Zero-Trust Sanitation:** Control IDs match `/^[a-zA-Z0-9_-]{1,16}$/`. Object allocations use `Object.create(null)` to neutralize prototype pollution. Master Console DOM construction uses strict `textContent` (zero `innerHTML`).
+### Security Architecture
+
+1. **Public Room Code (4 characters, e.g. `HJHX`)**: Displayed on screen or QR code for attendee entry. Public participants cannot access master broadcast controls.
+2. **Private Master Key (`OP-XXXXXX`) or 4-Digit PIN (`1234`)**: Displayed strictly in the operator terminal and TouchDesigner custom parameters.
+3. **Covert FOH Operator Access**: Accessed via a low-opacity `OP-ACCESS` micro-trigger at the bottom-right of the viewport (`opacity: 0.15`), URL parameter (`?key=1234`), or keyboard shortcuts (`Ctrl+Shift+O`, `~`).
+4. **Rate Limiting & Lockout**: Sockets failing master authentication 3 consecutive times are disconnected with code `4003`. Remote IPs failing 5 times enter a 60-second cooldown.
+5. **Input Sanitization**: Control IDs match `/^[a-zA-Z0-9_-]{1,16}$/`. Slot dictionaries use `Object.create(null)` to prevent prototype pollution. Master Console DOM construction uses strict `textContent` without `innerHTML`.
 
 ---
 
-## 5. Dynamic Session Branding Architecture
+## 5. Dynamic Session Branding
 
-Artists can rebrand the entire live event dynamically from within TouchDesigner:
+Artists can rebrand the event title from within TouchDesigner without restarting servers:
 
 ```text
 TouchDesigner (/project1/TDBridge.par.Sessionname)
@@ -107,21 +111,19 @@ TouchDesigner (/project1/TDBridge.par.Sessionname)
 Node.js Relay Server (activeSessionName state)
        │
        ├──► Included in /health & /telemetry REST payloads
-       ├──► Broadcast in WebSocket handshakes (assigned_slot, master_login_success)
+       ├──► Broadcast in WebSocket handshakes
        │
        ▼
 Client Browser Gate (#brand-title) & Stage QR Banner (out_qr_top)
 ```
 
-Updating `Sessionname` in TouchDesigner instantly updates the attendee welcome screen and the stage projection banner with zero server restarts.
-
 ---
 
 ## 6. Telemetry Stability & Heartbeat Guards
 
-TouchDesigner's `telemetry_exec` broadcasts a 1Hz failover heartbeat (`/bridge/master_pin`, `/td/scene_list`, `/td/scene_health`).
+TouchDesigner's `telemetry_exec` broadcasts a 1Hz heartbeat (`/bridge/master_pin`, `/td/scene_list`, `/td/scene_health`).
 
-To prevent terminal thrashing and live telemetry ring-buffer eviction, `src/server/relay.ts` enforces strict **Value-Change Guards**:
+To prevent terminal redraw thrashing, `src/server/relay.ts` enforces value-change guards on all incoming telemetry:
 ```typescript
 if (msg.address === '/bridge/master_pin' && typeof msg.args[0] === 'string') {
     const rawPin = msg.args[0].trim();
@@ -132,41 +134,29 @@ if (msg.address === '/bridge/master_pin' && typeof msg.args[0] === 'string') {
     }
 }
 ```
-The failover heartbeat continues uninterrupted, while diagnostic logs remain 100% clean and free of repetitive spam.
 
 ---
 
-## 7. Universal Responsive Viewport Scaling
+## 7. Responsive Viewport Scaling
 
-The user interface utilizes a fluid CSS custom property hierarchy across 5 viewport classes:
+The user interface uses fluid CSS tokens across 5 viewport classes:
 
-| Breakpoint Tier | Viewport Min | Card Max-Width | Typography Scale | Target Hardware |
+| Breakpoint Tier | Viewport Min | Card Max-Width | Typography Scale | Target Devices |
 | :--- | :--- | :--- | :--- | :--- |
-| **Mobile** | `< 768px` | `clamp(320px, 92vw, 420px)` | Title: `2.0rem`, Code: `1.375rem` | iPhone 14/15/16 Pro (19.5:9), Android (~20:9) |
-| **Tablet / iPad** | `768px` | `clamp(480px, 58vw, 580px)` | Title: `2.75rem`, Code: `1.75rem` | iPad Mini, iPad 10.2", iPad Pro (4:3 ratio) |
+| **Mobile** | `< 768px` | `clamp(320px, 92vw, 420px)` | Title: `2.0rem`, Code: `1.375rem` | Modern smartphones (19.5:9, 20:9) |
+| **Tablet / iPad** | `768px` | `clamp(480px, 58vw, 580px)` | Title: `2.75rem`, Code: `1.75rem` | iPad Mini, iPad 10.2", iPad Pro (4:3) |
 | **Desktop FHD** | `1024px` | `clamp(540px, 36vw, 680px)` | Title: `3.25rem`, Code: `2.0rem` | Standard 1080p FHD monitors |
 | **Desktop QHD** | `1920px` | `clamp(660px, 32vw, 800px)` | Title: `4.0rem`, Code: `2.5rem` | 1440p QHD displays |
-| **4K UHD** | `2560px+` | `clamp(880px, 28vw, 1100px)` | Title: `5.5rem`, Code: `3.5rem` | 4K UHD monitors (3840 $\times$ 2160) |
+| **4K UHD** | `2560px+` | `clamp(880px, 28vw, 1100px)` | Title: `5.5rem`, Code: `3.5rem` | 4K UHD monitors (3840 x 2160) |
 
-- **Centering & Scroll Protection:** Card uses `margin: auto; max-height: calc(100dvh - 32px); overflow-y: auto;` to eliminate top-clipping on short or landscape viewports.
-- **iOS Safari Touch Protection:** Input fields enforce `font-size: max(16px, 1rem)` to eliminate mobile browser auto-zoom.
+Input fields use `font-size: max(16px, 1rem)` to prevent mobile Safari from auto-zooming on focus.
 
 ---
 
 ## 8. Self-Healing Scene Engine
 
 Managed by `/project1/TDBridge/scene_manager`:
-1. **Green Wire Auto-Link (CHOPs):** Scans `/project1` for scene COMPs. If player data is missing, drops `select_bridge` (`selectCHOP`) mapped to `out_players_chop`.
-2. **Purple Wire Auto-Wire (TOPs):** Detects the terminal video output of each scene, ensures it is named `out1` (`outTOP`), and connects it to `/project1/switch_preview`.
-3. **Failover Protection:** If an active scene throws a fatal cook exception or is deleted, `TDBridge` routes `switch_preview` to a safe fallback (e.g. `out_qr_top`), preventing projection blackouts.
-4. **1-Click Template Scaffolding:** `[Create Scene Template]` (`Newscene`) generates a pre-wired Base COMP ready for custom visual design.
-
----
-
-## 9. Codebase Navigation with Graphify
-
-The codebase is indexed as a persistent knowledge graph in `graphify-out/`:
-- **Interactive D3 Map:** `graphify-out/graph.html`
-- **Subsystem Communities:** 84 communities spanning Client DOM, Relay Core, Control Profiles, and TouchDesigner Scripts.
-- **Query CLI:** `python -m graphify query "<question>"` traverses the graph using breadth-first search.
-- **Audit Ledger:** `graphify-out/GRAPH_REPORT.md` details all god nodes and subsystem bridge points.
+1. **CHOP Auto-Link**: Scans `/project1` for scene COMPs. If player data is missing, drops `select_bridge` (`selectCHOP`) mapped to `out_players_chop`.
+2. **TOP Auto-Wire**: Detects the terminal video output of each scene, ensures it is named `out1` (`outTOP`), and connects it to `/project1/switch_preview`.
+3. **Blackout Fallback**: If an active scene errors or is deleted, `TDBridge` falls back to `out_qr_top` to prevent black projection screens.
+4. **Template Scaffolding**: `[Create Scene Template]` (`Newscene`) generates a pre-wired Base COMP ready for custom visuals.
