@@ -4,6 +4,18 @@ node_modules/
 # Runtime process locks and logs
 .relay.pid
 scratch_debug/
+assets/screenshots/
+*.log
+
+# AI Tooling, Automation & Planning
+.wiggumrc
+wiggum*
+TASK_LEDGER*
+implementation_plan*.md
+.graphifyignore
+graphify-out/
+.serena/
+.agents/
 
 # Python bytecode
 __pycache__/
@@ -17,10 +29,6 @@ Backup/
 # Compiled JS in src/ (source is src/**/*.ts; build outputs go to dist/ and public/app.js)
 src/**/*.js
 src/**/*.js.map
-
-# Graphify cache
-graphify-out/.graphify_*.json
-graphify-out/cache/
 
 # Operating system files
 .DS_Store
