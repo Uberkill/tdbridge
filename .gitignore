@@ -12,6 +12,7 @@ assets/screenshots/
 wiggum*
 TASK_LEDGER*
 implementation_plan*.md
+task_state.json
 .graphifyignore
 graphify-out/
 .serena/
